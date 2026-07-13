@@ -18,9 +18,6 @@ import ru.dtpsaa.sinusac.model.Frame;
  * HTTP-клиент к ML-серверу SinusAI.
  * <p>
  * SinusAC использует: validateLicense, analyze, notifyBan, heartbeat, ping.
- * Методы upload() и learn() оставлены как API для SinusOP — команды,
- * которые их дёргают, в этом плагине отсутствуют. Реальная защита от
- * несанкционированного обучения — на стороне сервера (права токена лицензии).
  */
 public class ApiClient {
 
@@ -65,22 +62,6 @@ public class ApiClient {
         }
     }
 
-    public static class LearnResult {
-        public final boolean success;
-        public final String message;
-        public final Map<String, String> results;
-
-        public LearnResult(boolean success, String message, Map<String, String> results) {
-            this.success = success;
-            this.message = message;
-            this.results = (results != null) ? results : new HashMap<>();
-        }
-
-        public static LearnResult fail(String r) {
-            return new LearnResult(false, r, null);
-        }
-    }
-
     private final Gson gson = new Gson();
     private HttpClient http;
     private volatile String sessionToken;
@@ -93,15 +74,22 @@ public class ApiClient {
         this.http = buildClient();
     }
 
-    /** Перечитывает url/ключ из конфига и заново определяет server_id (публичный IP:порт). */
+    /** Перечитывает url/ключ из конфига и заново определяет server_id (публичный IP). */
     public void updateConfig(PluginConfig config) {
         this.baseUrl = config.getServerUrl().replaceAll("/$", "");
         this.licenseKey = config.getLicenseKey();
         this.sessionToken = this.licenseKey;
         this.http = buildClient();
-        int port = org.bukkit.Bukkit.getPort();
-        String ip = resolvePublicIp();
-        this.serverId = ip + ":" + port;
+        this.serverId = resolvePublicIp();
+    }
+
+    public String getBaseUrl() {
+        return this.baseUrl;
+    }
+
+    public String getAuthToken() {
+        return (this.sessionToken != null && !this.sessionToken.isEmpty())
+                ? this.sessionToken : this.licenseKey;
     }
 
     private String resolvePublicIp() {
@@ -194,45 +182,6 @@ public class ApiClient {
         } catch (Exception ignored) {}
     }
 
-    /** [API для SinusOP] Загрузка размеченных фреймов в датасет. */
-    public boolean upload(List<Frame> frames, boolean isCheater, String checkType, String platform) {
-        Map<String, Object> body = Map.of(
-                "platform", platform,
-                "check_type", normalizeCheck(checkType),
-                "is_cheater", isCheater,
-                "frames", frames);
-        try {
-            HttpResponse<String> resp = this.http.send(
-                    authReq(this.baseUrl + "/upload")
-                            .POST(HttpRequest.BodyPublishers.ofString(this.gson.toJson(body))).build(),
-                    HttpResponse.BodyHandlers.ofString());
-            return (resp.statusCode() == 200);
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    /** [API для SinusOP] Запуск обучения моделей на сервере. */
-    public LearnResult learn() {
-        try {
-            HttpResponse<String> resp = this.http.send(
-                    authReq(this.baseUrl + "/learn")
-                            .POST(HttpRequest.BodyPublishers.noBody()).build(),
-                    HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() == 200) {
-                JsonObject obj = this.gson.fromJson(resp.body(), JsonObject.class);
-                Map<String, String> results = new HashMap<>();
-                if (obj.has("results"))
-                    obj.getAsJsonObject("results").entrySet()
-                            .forEach(e -> results.put(e.getKey(), e.getValue().getAsString()));
-                return new LearnResult(true, "ok", results);
-            }
-            return LearnResult.fail("HTTP " + resp.statusCode() + " " + reason(resp.body()));
-        } catch (Exception e) {
-            return LearnResult.fail("Ошибка: " + e.getMessage());
-        }
-    }
-
     public boolean heartbeat(String name, String mcVersion, int online, int flagged, int banned) {
         Map<String, Object> body = new HashMap<>();
         body.put("server_id", this.serverId);
@@ -277,11 +226,9 @@ public class ApiClient {
     }
 
     private HttpRequest.Builder authReq(String url) {
-        String tok = (this.sessionToken != null && !this.sessionToken.isEmpty())
-                ? this.sessionToken : this.licenseKey;
         return HttpRequest.newBuilder(URI.create(url))
                 .version(HttpClient.Version.HTTP_1_1)
-                .header("Authorization", "Bearer " + tok)
+                .header("Authorization", "Bearer " + getAuthToken())
                 .header("Content-Type", "application/json")
                 .timeout(Duration.ofSeconds(12L));
     }

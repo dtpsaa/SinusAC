@@ -28,11 +28,18 @@ import ru.dtpsaa.sinusac.util.ApiClient;
  */
 public class SessionManager {
 
+    /** Загрузчик размеченных фреймов. Реализацию регистрирует SinusOP. */
+    public interface FrameUploader {
+        boolean upload(List<Frame> frames, boolean isCheater, String checkType, String platform);
+    }
+
     private final SinusAC plugin;
     private final ApiClient apiClient;
     private PluginConfig pluginConfig;
     private final Logger logger;
     private long serverTick = 0L;
+
+    private volatile FrameUploader uploader;
 
     private final Map<UUID, PlayerSession> sessions = new ConcurrentHashMap<>();
     /** Игроки в режиме записи (true=CHEATER, false=LEGIT). Управляется из SinusOP. */
@@ -62,6 +69,11 @@ public class SessionManager {
 
         this.tickTask = plugin.getServer().getScheduler()
                 .runTaskTimer((Plugin) plugin, () -> this.serverTick++, 1L, 1L);
+    }
+
+    /** [API для SinusOP] Регистрация загрузчика датасета. */
+    public void setFrameUploader(FrameUploader uploader) {
+        this.uploader = uploader;
     }
 
     /** Определяет платформу игрока (java/bedrock) с кэшированием. */
@@ -260,8 +272,15 @@ public class SessionManager {
     /** [API для SinusOP] Асинхронная загрузка размеченной сессии в датасет. */
     private void uploadSession(String playerName, List<Frame> frames, boolean isCheater,
                                String platform, CommandSender notifySender) {
+        FrameUploader up = this.uploader;
+        if (up == null) {
+            this.logger.warning("[UPLOAD] Загрузчик не подключён — пропуск (" + playerName + ")");
+            if (notifySender != null)
+                notifySender.sendMessage("Загрузка недоступна: модуль обучения не подключён.");
+            return;
+        }
         this.plugin.getServer().getScheduler().runTaskAsynchronously((Plugin) this.plugin, () -> {
-            boolean success = this.apiClient.upload(frames, isCheater, "combat", platform);
+            boolean success = up.upload(frames, isCheater, "combat", platform);
             String label = isCheater ? "CHEATER" : "LEGIT";
             this.logger.info(String.format("[UPLOAD] %s [%s] | %s | frames=%d | %s",
                     playerName, platform, label, frames.size(), success ? "OK" : "FAIL"));
