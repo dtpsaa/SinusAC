@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="SinusAC:jar">
+    <output-path>D:/П</output-path>
+    <root id="archive" name="SinusAC.jar">
+      <element id="module-output" name="SinusAC" />
+    </root>
+  </artifact>
+</component>

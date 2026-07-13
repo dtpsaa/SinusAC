@@ -1,0 +1,32 @@
+name: SinusAC
+version: '${project.version}'
+main: ru.dtpsaa.sinusac.SinusAC
+api-version: '1.16'
+softdepend: [floodgate]
+
+commands:
+  sinusac:
+    description: Управление SinusAC AntiCheat
+    usage: /sinusac <подкоманда>
+    aliases: [sac]
+    permission: sinusac.admin
+
+permissions:
+  sinusac.admin:
+    description: Полный доступ ко всем командам SinusAC
+    default: op
+    children:
+      sinusac.alerts: true
+      sinusac.holo: true
+
+  sinusac.alerts:
+    description: Получать алерты о проверенных игроках (% читерности)
+    default: op
+
+  sinusac.holo:
+    description: Возможность включить себе голограммы (/sinusac holo on)
+    default: op
+
+  anticheat.bypass:
+    description: Не проверяться античитом
+    default: false
