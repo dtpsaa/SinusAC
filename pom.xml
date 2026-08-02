@@ -6,7 +6,7 @@
 
     <groupId>ru.dtpsaa</groupId>
     <artifactId>sinusac</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>SinusAC</name>
@@ -24,10 +24,6 @@
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
-        <repository>
-            <id>opencollab-snapshot</id>
-            <url>https://repo.opencollab.dev/maven-snapshots/</url>
-        </repository>
     </repositories>
 
     <dependencies>
@@ -36,13 +32,6 @@
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
             <version>1.20.6-R0.1-SNAPSHOT</version>
-            <scope>provided</scope>
-        </dependency>
-        <!-- Floodgate API (Bedrock-игроки), мягкая зависимость -->
-        <dependency>
-            <groupId>org.geysermc.floodgate</groupId>
-            <artifactId>api</artifactId>
-            <version>2.2.4-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

@@ -9,7 +9,7 @@ import ru.dtpsaa.sinusac.util.ApiClient;
 /**
  * /sinusac reload
  * <p>
- * Перечитывает config.yml и messages.yml, обновляет ApiClient,
+ * Перечитывает config.yml и выбранный locale/*.yml, обновляет ApiClient,
  * асинхронно перепроверяет лицензию и — только при валидной лицензии —
  * прокидывает новый конфиг в SessionManager (логика 1-в-1 из SinusAI).
  */
@@ -29,9 +29,10 @@ public final class ReloadCommand implements SubCommand {
     @Override
     public void execute(CommandSender sender, String[] args) {
         this.plugin.reloadConfig();
-        this.plugin.getMessages().load();
         this.plugin.getPluginConfig().reload(this.plugin.getConfig());
-        this.plugin.getApiClient().updateConfig(this.plugin.getPluginConfig());
+        this.plugin.getMessages().load();
+        this.plugin.getApiClient().updateConfig(
+                this.plugin.getPluginConfig(), this.plugin.getServer().getPort());
         sender.sendMessage(this.plugin.getMessages().get("cmd.reload.start"));
 
         // Проверка лицензии — сетевой вызов, поэтому асинхронно
@@ -40,6 +41,8 @@ public final class ReloadCommand implements SubCommand {
             if (lic.valid) {
                 if (this.plugin.getSessionManager() != null)
                     this.plugin.getSessionManager().updateConfig(this.plugin.getPluginConfig());
+                if (this.plugin.getFlyManager() != null)
+                    this.plugin.getFlyManager().updateConfig(this.plugin.getPluginConfig());
                 sender.sendMessage(this.plugin.getMessages().get("cmd.reload.success"));
             } else {
                 sender.sendMessage(this.plugin.getMessages().get("cmd.reload.fail").replace("{msg}", lic.message));

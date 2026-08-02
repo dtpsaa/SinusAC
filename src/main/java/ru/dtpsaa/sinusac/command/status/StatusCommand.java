@@ -33,19 +33,31 @@ public final class StatusCommand implements SubCommand {
 
         sender.sendMessage(this.plugin.getMessages().get("cmd.status.api")
                 .replace("{url}", this.plugin.getPluginConfig().getServerUrl()));
+        sender.sendMessage(this.plugin.getMessages().get("cmd.status.server")
+                .replace("{id}", this.plugin.getApiClient().getServerId()));
         sender.sendMessage(this.plugin.getMessages().get("cmd.status.sessions")
                 .replace("{count}", String.valueOf(sessions)));
         sender.sendMessage(this.plugin.getMessages().get("cmd.status.alerts")
-                .replace("{state}", this.plugin.isAlertsEnabled() ? "включены" : "выключены"));
+                .replace("{state}", state(this.plugin.isAlertsEnabled())));
+        sender.sendMessage(this.plugin.getMessages().get("cmd.status.combat")
+                .replace("{state}", state(this.plugin.getPluginConfig().isCheckEnabled("combat"))));
+        sender.sendMessage(this.plugin.getMessages().get("cmd.status.fly")
+                .replace("{state}", state(this.plugin.getPluginConfig().isCheckEnabled("fly"))));
+        sender.sendMessage(this.plugin.getMessages().get("cmd.status.locale")
+                .replace("{locale}", this.plugin.getMessages().getLocale()));
 
         // Пинг и лицензия — сеть, асинхронно
         this.plugin.getServer().getScheduler().runTaskAsynchronously((Plugin) this.plugin, () -> {
             boolean alive = this.plugin.getApiClient().ping();
             sender.sendMessage(this.plugin.getMessages().get("cmd.status.api_check")
-                    .replace("{status}", alive ? "онлайн" : "недоступен"));
+                    .replace("{status}", this.plugin.getMessages().get(
+                            alive ? "state.online" : "state.unavailable")));
             if (alive) {
                 ApiClient.LicenseResult lic = this.plugin.getApiClient().validateLicense();
-                String days = (lic.remainingDays == -1) ? "бессрочно" : (lic.remainingDays + " дней");
+                String days = (lic.remainingDays == -1)
+                        ? this.plugin.getMessages().get("state.unlimited")
+                        : this.plugin.getMessages().get("state.days")
+                                .replace("{days}", String.valueOf(lic.remainingDays));
                 String validColor = lic.valid ? "\u00A7a" : "\u00A7c";
                 sender.sendMessage(this.plugin.getMessages().get("cmd.status.license")
                         .replace("{valid}", validColor)
@@ -53,5 +65,9 @@ public final class StatusCommand implements SubCommand {
                         .replace("{days}", days));
             }
         });
+    }
+
+    private String state(boolean enabled) {
+        return this.plugin.getMessages().get(enabled ? "state.enabled" : "state.disabled");
     }
 }

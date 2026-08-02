@@ -50,17 +50,27 @@ public class PlayerSession {
 
     /** Добавляет кадр движения. Первый вызов только инициализирует prev-значения. */
     public void addMovement(float yaw, float pitch) {
+        addMovement(yaw, pitch, true);
+    }
+
+    /**
+     * Добавляет кадр движения. Во время обычного мониторинга сохраняется
+     * скользящее окно maxFrames; во время записи датасета лимит отключается,
+     * потому что SessionManager сам выгружает данные пакетами.
+     */
+    public boolean addMovement(float yaw, float pitch, boolean enforceLimit) {
         if (Float.isNaN(this.prevYaw)) {
             this.prevYaw = yaw;
             this.prevPitch = pitch;
-            return;
+            return false;
         }
         updateGcd((yaw - this.prevYaw), (pitch - this.prevPitch));
         this.frames.add(new Frame(yaw, pitch));
-        if (this.frames.size() > this.maxFrames)
+        if (enforceLimit && this.frames.size() > this.maxFrames)
             this.frames.remove(0);
         this.prevYaw = yaw;
         this.prevPitch = pitch;
+        return true;
     }
 
     private void updateGcd(double deltaYaw, double deltaPitch) {
@@ -104,6 +114,16 @@ public class PlayerSession {
     /** Возвращает КОПИЮ списка фреймов — безопасно для асинхронной обработки. */
     public List<Frame> getFrames()  { return new ArrayList<>(this.frames); }
     public int getFrameCount()      { return this.frames.size(); }
+
+    /**
+     * Забирает накопленную пачку, сохраняя prevYaw и GCD-историю между
+     * пакетами датасета.
+     */
+    public List<Frame> drainFrames() {
+        List<Frame> result = new ArrayList<>(this.frames);
+        this.frames.clear();
+        return result;
+    }
 
     /** Полный сброс сессии (используется при начале записи в SinusOP). */
     public void clearFrames() {

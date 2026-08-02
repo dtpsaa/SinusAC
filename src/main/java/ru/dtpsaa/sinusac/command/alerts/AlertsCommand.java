@@ -29,7 +29,8 @@ public final class AlertsCommand implements SubCommand {
     @Override
     public void execute(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            String state = this.plugin.isAlertsEnabled() ? "включены" : "выключены";
+            String state = this.plugin.getMessages().get(
+                    this.plugin.isAlertsEnabled() ? "state.enabled" : "state.disabled");
             sender.sendMessage(this.plugin.getMessages().get("cmd.alerts.usage").replace("{state}", state));
             return;
         }

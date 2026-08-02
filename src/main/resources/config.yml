@@ -2,12 +2,14 @@
 # SinusAC AntiCheat - config.yml
 # Лицензионный ключ: t.me/sinusai
 # =============================================
+
+# Interface language: en or ru. English is used for unknown values.
+locale: "en"
+
 license-key: ""
 
 server:
   url: "https://sinusai.tech"
-  # Анализ ударов в отдельном потоке (рекомендуется true)
-  async: true
 
 collection:
   # Минимум фреймов для анализа/выгрузки
@@ -25,6 +27,8 @@ collection:
 checks:
   combat:
     enabled: true
+    # At most one non-blocking ML request per player during this interval.
+    request-interval-ticks: 20
     # 0.00 = алертить каждый проверенный удар (чистые алерты)
     alert-threshold: 0.00
     # Порог накопления VL (+1)
@@ -32,6 +36,17 @@ checks:
     # Порог мгновенного авто-наказания
     auto-flag-threshold: 0.99
 
-actions:
-  notify:
-    message: "&8[&bSinusAI&8] &f{player} &7- &f{verdict} &fшанс что с читом: &c{prob}% &8(&b{vl}&7/&b{max_vl}&8)"
+  # Server-side Fly check. Detection logic stays on the SinusAI server.
+  fly:
+    enabled: true
+    # Keep true unless Java players must also be checked by this rule engine.
+    bedrock-only: true
+    # Snapshots per player in one request (20 ticks ≈ 1 second).
+    batch-size: 20
+    # Suspicious ticks required before a setback/alert.
+    min-vl: 3
+    # Accumulated violations required before commands are executed.
+    max-mvl: 12
+    setback: true
+    # Empty by default: enable your own punishment only after observing alerts.
+    punish-commands: []

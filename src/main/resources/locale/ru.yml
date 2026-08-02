@@ -1,0 +1,75 @@
+# Русская локаль SinusAC
+prefix: "&8[&bSinusAI&8] "
+
+no-permission: "{prefix}&cУ вас недостаточно прав для этой команды."
+plugin-not-ready: "{prefix}&cПлагин не подключён к серверу SinusAI."
+players-only: "{prefix}&cЭта команда доступна только игрокам."
+player-not-found: "{prefix}&cИгрок &e{player} &cне найден."
+
+state:
+  enabled: "включены"
+  disabled: "выключены"
+  online: "онлайн"
+  unavailable: "недоступен"
+  unlimited: "бессрочно"
+  days: "{days} дней"
+
+verdict:
+  auto: "АВТО"
+  vl: "VL"
+  flag: "ФЛАГ"
+  legit: "ЛЕГИТ"
+
+cmd:
+  help:
+    - "&8&m                    "
+    - " &bSinusAC &7— Справка"
+    - "&8&m                    "
+    - " &7/sinusac status &8— Статус API, лицензии и проверок"
+    - " &7/sinusac alerts <on|off> &8— Уведомления для персонала"
+    - " &7/sinusac holo <on|off> &8— Ваши голограммы"
+    - " &7/sinusac check <игрок> &8— Принудительный анализ боя"
+    - " &7/sinusac sessions &8— Список активных сессий"
+    - " &7/sinusac reload &8— Перезагрузить конфиг и локаль"
+    - "&8&m                    "
+  status:
+    api: "{prefix}&7API-сервер: &f{url}"
+    server: "{prefix}&7ID сервера: &f{id}"
+    sessions: "{prefix}&7Активных сессий: &e{count}"
+    alerts: "{prefix}&7Уведомления: &f{state}"
+    combat: "{prefix}&7Combat-проверка: &f{state}"
+    fly: "{prefix}&7Fly-проверка: &f{state}"
+    locale: "{prefix}&7Локаль: &f{locale}"
+    api_check: "{prefix}&7Сервер SinusAI: &f{status}"
+    license: "{prefix}&7Лицензия: {valid}{msg} &7(осталось: &a{days}&7)"
+  reload:
+    start: "{prefix}&7Перезагрузка конфигурации..."
+    success: "{prefix}&aКонфиг и локаль успешно перезагружены."
+    fail: "{prefix}&cОшибка перезагрузки: &e{msg}"
+  check:
+    usage: "{prefix}&cИспользование: &7/sinusac check <игрок>"
+    analyzing: "{prefix}&7Анализирую игрока &e{player}&7..."
+  holo:
+    usage: "{prefix}&7Голограммы у вас сейчас: &f{state}&7. Использование: &7/sinusac holo <on|off>"
+    usage_err: "{prefix}&cИспользуйте &eon &cили &eoff&c."
+    "on": "{prefix}&aГолограммы включены &7(только для вас)&a."
+    "off": "{prefix}&cГолограммы отключены &7(только для вас)&c."
+  alerts:
+    usage: "{prefix}&7Уведомления сейчас: &f{state}&7. Использование: &7/sinusac alerts <on|off>"
+    usage_err: "{prefix}&cИспользуйте &eon &cили &eoff&c."
+    "on": "{prefix}&aУведомления включены."
+    "off": "{prefix}&cУведомления отключены."
+  sessions:
+    count: "{prefix}&7Активных сессий: &e{count}"
+
+notify:
+  combat: "&8[&bSinusAI&8] &f{player} &7— &f{verdict} &7— шанс читерства: &c{prob}% &8(&b{vl}&7/&b{max_vl}&8)"
+  fly: "&8[&bSinusAI&8] &f{player} &7— &cобнаружен Fly &8(&bVL {vl} &7· &bMVL {mvl}&8)"
+
+training:
+  upload-unavailable: "{prefix}&cМодуль загрузки обучения не подключён."
+  upload-result: "{prefix}&7Загружено &e{frames} &7фреймов для &e{player} &8[{platform}] &7как &f{label}&7: {result}"
+  no-new-frames: "{prefix}&eВсе полные пачки уже отправлены; новых кадров нет."
+  not-enough-frames: "{prefix}&cНедостаточно фреймов: &e{have}&7/&e{need} &7для {player}."
+  analyzing: "{prefix}&7Анализирую &e{player} &8[{platform}]&7..."
+

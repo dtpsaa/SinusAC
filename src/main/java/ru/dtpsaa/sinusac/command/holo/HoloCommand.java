@@ -38,7 +38,8 @@ public final class HoloCommand implements SubCommand {
         }
         if (args.length < 2) {
             boolean viewing = this.plugin.getHoloManager().isViewer(player.getUniqueId());
-            String state = viewing ? "включены" : "выключены";
+            String state = this.plugin.getMessages().get(
+                    viewing ? "state.enabled" : "state.disabled");
             sender.sendMessage(this.plugin.getMessages().get("cmd.holo.usage").replace("{state}", state));
             return;
         }

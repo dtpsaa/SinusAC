@@ -30,8 +30,9 @@ public class PluginConfig {
         return this.cfg.getString("server.url", "https://sinusai.tech");
     }
 
-    public boolean isAsync() {
-        return this.cfg.getBoolean("server.async", true);
+    public String getLocale() {
+        String locale = this.cfg.getString("locale", "en").trim().toLowerCase();
+        return locale.equals("ru") ? "ru" : "en";
     }
 
     // ---------- Сбор фреймов ----------
@@ -63,6 +64,15 @@ public class PluginConfig {
         return (checkType.equals("killaura") || checkType.equals("aimassist")) ? "combat" : checkType;
     }
 
+    public boolean isCheckEnabled(String checkType) {
+        return this.cfg.getBoolean("checks." + resolve(checkType) + ".enabled", true);
+    }
+
+    public int getCombatRequestIntervalTicks() {
+        return Math.max(5, Math.min(100,
+                this.cfg.getInt("checks.combat.request-interval-ticks", 20)));
+    }
+
     public double getAutoFlagThreshold(String checkType) {
         return this.cfg.getDouble("checks." + resolve(checkType) + ".auto-flag-threshold", 0.85D);
     }
@@ -72,7 +82,33 @@ public class PluginConfig {
     }
 
     public double getAlertThreshold(String checkType) {
-        return this.cfg.getDouble("checks." + checkType + ".alert-threshold", 0.0D);
+        return this.cfg.getDouble("checks." + resolve(checkType) + ".alert-threshold", 0.0D);
+    }
+
+    // ---------- Fly ----------
+
+    public boolean isFlyBedrockOnly() {
+        return this.cfg.getBoolean("checks.fly.bedrock-only", true);
+    }
+
+    public int getFlyBatchSize() {
+        return Math.max(5, Math.min(60, this.cfg.getInt("checks.fly.batch-size", 20)));
+    }
+
+    public int getFlyMinVl() {
+        return Math.max(1, Math.min(20, this.cfg.getInt("checks.fly.min-vl", 3)));
+    }
+
+    public int getFlyMaxMvl() {
+        return Math.max(1, Math.min(1000, this.cfg.getInt("checks.fly.max-mvl", 12)));
+    }
+
+    public boolean isFlySetback() {
+        return this.cfg.getBoolean("checks.fly.setback", true);
+    }
+
+    public List<String> getFlyPunishCommands() {
+        return this.cfg.getStringList("checks.fly.punish-commands");
     }
 
     // ---------- Наказания ----------
@@ -85,10 +121,4 @@ public class PluginConfig {
         return this.cfg.getStringList("collection.punish-commands");
     }
 
-    // ---------- Сообщения ----------
-
-    public String getNotifyMessage() {
-        return this.cfg.getString("actions.notify.message",
-                "&8[&bSinusAI&8] &e{player} &8[{platform}] &7| {verdict} &7| {prob}% | {conf}%");
-    }
 }

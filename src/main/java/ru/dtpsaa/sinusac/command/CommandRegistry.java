@@ -93,7 +93,7 @@ public final class CommandRegistry implements CommandExecutor, TabCompleter {
         return (sub != null) ? sub.tabComplete(sender, args) : Collections.emptyList();
     }
 
-    /** Справка берётся списком из messages.yml (cmd.help) — как ты и просил, через getList. */
+    /** Справка берётся списком из выбранного locale/*.yml. */
     private void printHelp(CommandSender sender) {
         for (String line : this.plugin.getMessages().getList("cmd.help"))
             sender.sendMessage(line);

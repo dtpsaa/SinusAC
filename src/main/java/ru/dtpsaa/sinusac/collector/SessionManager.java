@@ -1,8 +1,10 @@
 package ru.dtpsaa.sinusac.collector;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
@@ -10,7 +12,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
-import org.geysermc.floodgate.api.FloodgateApi;
 import ru.dtpsaa.sinusac.SinusAC;
 import ru.dtpsaa.sinusac.config.PluginConfig;
 import ru.dtpsaa.sinusac.model.Frame;
@@ -28,6 +29,8 @@ import ru.dtpsaa.sinusac.util.ApiClient;
  */
 public class SessionManager {
 
+    private static final int TRAINING_BATCH_SIZE = 500;
+
     /** Загрузчик размеченных фреймов. Реализацию регистрирует SinusOP. */
     public interface FrameUploader {
         boolean upload(List<Frame> frames, boolean isCheater, String checkType, String platform);
@@ -44,12 +47,19 @@ public class SessionManager {
     private final Map<UUID, PlayerSession> sessions = new ConcurrentHashMap<>();
     /** Игроки в режиме записи (true=CHEATER, false=LEGIT). Управляется из SinusOP. */
     private final Map<UUID, Boolean> recordMode = new ConcurrentHashMap<>();
+    /** Полное число кадров текущей записи, включая уже отправленные пачки. */
+    private final Map<UUID, Integer> recordedFrameCounts = new ConcurrentHashMap<>();
     private final Map<UUID, String> platformCache = new ConcurrentHashMap<>();
+    /** Limits combat analysis to one non-blocking request per player at a time. */
+    private final Set<UUID> combatInFlight = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, Long> lastCombatRequestTick = new ConcurrentHashMap<>();
     /** Скользящее окно вероятностей (до 20 последних ударов) для AVG и голограмм. */
     private final Map<UUID, List<Double>> suspicionHistory = new ConcurrentHashMap<>();
 
     private BukkitTask tickTask;
     private boolean floodgateAvailable = false;
+    private Object floodgateApi;
+    private Method isFloodgatePlayer;
 
     public SessionManager(SinusAC plugin, ApiClient apiClient, PluginConfig pluginConfig) {
         this.plugin = plugin;
@@ -59,8 +69,9 @@ public class SessionManager {
 
         // Мягкая проверка Floodgate — поддержка Bedrock-игроков
         try {
-            Class.forName("org.geysermc.floodgate.api.FloodgateApi");
-            FloodgateApi.getInstance();
+            Class<?> apiClass = Class.forName("org.geysermc.floodgate.api.FloodgateApi");
+            this.floodgateApi = apiClass.getMethod("getInstance").invoke(null);
+            this.isFloodgatePlayer = apiClass.getMethod("isFloodgatePlayer", UUID.class);
             this.floodgateAvailable = true;
             this.logger.info("Floodgate API обнаружен, включена поддержка Bedrock.");
         } catch (Throwable ignored) {
@@ -77,12 +88,13 @@ public class SessionManager {
     }
 
     /** Определяет платформу игрока (java/bedrock) с кэшированием. */
-    private String getPlatform(UUID uuid) {
+    public String getPlatform(UUID uuid) {
         return this.platformCache.computeIfAbsent(uuid, id -> {
             if (!this.floodgateAvailable)
                 return "java";
             try {
-                return FloodgateApi.getInstance().isFloodgatePlayer(id) ? "bedrock" : "java";
+                boolean bedrock = (boolean) this.isFloodgatePlayer.invoke(this.floodgateApi, id);
+                return bedrock ? "bedrock" : "java";
             } catch (Throwable e) {
                 return "java";
             }
@@ -98,14 +110,43 @@ public class SessionManager {
 
     /** Вызывается MovementListener на каждое изменение yaw/pitch. */
     public void onPlayerMove(Player player, float yaw, float pitch) {
-        getOrCreate(player).addMovement(yaw, pitch);
+        collectMovement(player, yaw, pitch);
+    }
+
+    /**
+     * В обычном режиме поддерживает ограниченное скользящее окно. В train
+     * лимита на всю запись нет: каждые 500 кадров забираются и отправляются
+     * отдельной пачкой, а сбор сразу продолжается.
+     */
+    private PlayerSession collectMovement(Player player, float yaw, float pitch) {
+        UUID uuid = player.getUniqueId();
+        PlayerSession session = getOrCreate(player);
+        Boolean trainingLabel = this.recordMode.get(uuid);
+        if (trainingLabel != null && session.getMarkedAs() == null)
+            session.setMarkedAs(trainingLabel);
+        boolean added = session.addMovement(yaw, pitch, trainingLabel == null);
+
+        if (trainingLabel != null && added) {
+            this.recordedFrameCounts.merge(uuid, 1, Integer::sum);
+            if (session.getFrameCount() >= TRAINING_BATCH_SIZE) {
+                List<Frame> batch = session.drainFrames();
+                this.logger.info(String.format(
+                        "[TRAIN] %s: собрана пачка %d frames, отправляю автоматически...",
+                        player.getName(), batch.size()));
+                uploadSession(player.getName(), batch, trainingLabel.booleanValue(),
+                        getPlatform(uuid), null);
+            }
+        }
+        return session;
     }
 
     /** Вызывается CombatListener на удар по игроку. Запускает анализ последних 60 фреймов. */
     public void onPlayerAttack(Player attacker) {
+        if (!this.pluginConfig.isCheckEnabled("combat"))
+            return;
         UUID uuid = attacker.getUniqueId();
-        PlayerSession session = getOrCreate(attacker);
-        session.addMovement(attacker.getLocation().getYaw(), attacker.getLocation().getPitch());
+        PlayerSession session = collectMovement(attacker,
+                attacker.getLocation().getYaw(), attacker.getLocation().getPitch());
 
         if (session.getFrameCount() < this.pluginConfig.getMinFrames())
             return;
@@ -113,9 +154,17 @@ public class SessionManager {
         if (this.recordMode.containsKey(uuid))
             return;
 
+        int interval = this.pluginConfig.getCombatRequestIntervalTicks();
+        long lastRequest = this.lastCombatRequestTick.getOrDefault(uuid, -((long) interval));
+        if (this.serverTick - lastRequest < interval || !this.combatInFlight.add(uuid))
+            return;
+        this.lastCombatRequestTick.put(uuid, this.serverTick);
+
         List<Frame> frames = session.getFrames();
         int n = Math.min(frames.size(), 60); // последние 60 фреймов
-        analyzeSession(session.name, uuid, frames.subList(frames.size() - n, frames.size()), getPlatform(uuid), null);
+        analyzeSession(session.name, uuid,
+                frames.subList(frames.size() - n, frames.size()),
+                getPlatform(uuid), null, true);
     }
 
     /** Очистка при выходе. Если игрок был на записи и набрал фреймы — автозагрузка датасета. */
@@ -123,10 +172,13 @@ public class SessionManager {
         PlayerSession session = this.sessions.remove(uuid);
         String platform = this.platformCache.remove(uuid);
         this.recordMode.remove(uuid);
+        this.recordedFrameCounts.remove(uuid);
         this.suspicionHistory.remove(uuid);
+        this.combatInFlight.remove(uuid);
+        this.lastCombatRequestTick.remove(uuid);
 
         if (session != null && session.getMarkedAs() != null
-                && session.getFrameCount() >= this.pluginConfig.getMinFrames()) {
+                && session.getFrameCount() > 0) {
             String lbl = session.getMarkedAs() ? "CHEATER" : "LEGIT";
             this.logger.info("[TRAIN] Игрок " + session.name + " вышел во время записи. Загружаю как " + lbl + "...");
             uploadSession(session.name, session.getFrames(),
@@ -140,11 +192,23 @@ public class SessionManager {
      * VL -> алерты -> наказание. notifySender != null означает ручной /sinusac check.
      */
     private void analyzeSession(String playerName, UUID uuid, List<Frame> frames,
-                                String platform, CommandSender notifySender) {
-        Runnable task = () -> {
-            ApiClient.AnalysisResult result = this.apiClient.analyze(frames, "combat", platform, playerName);
+                                String platform, CommandSender notifySender,
+                                boolean releaseCombatSlot) {
+        this.apiClient.analyzeAsync(frames, "combat", platform, playerName)
+                .whenComplete((result, error) -> {
+                    try {
+                        handleAnalysis(playerName, uuid, frames, platform, notifySender, result);
+                    } finally {
+                        if (releaseCombatSlot)
+                            this.combatInFlight.remove(uuid);
+                    }
+                });
+    }
 
-            if (result == null || result.noModel)
+    private void handleAnalysis(String playerName, UUID uuid, List<Frame> frames,
+                                String platform, CommandSender notifySender,
+                                ApiClient.AnalysisResult result) {
+            if (result == null || result.noModel || !this.pluginConfig.isCheckEnabled("combat"))
                 return;
 
             // Сервер ещё копит фреймы в буфере — ничего не делаем, ждём следующего удара
@@ -198,13 +262,13 @@ public class SessionManager {
 
             String verdict;
             if (isAutoFlag) {
-                verdict = "(АВТО)";
+                verdict = "(" + this.plugin.getMessages().get("verdict.auto") + ")";
             } else if (currentVl >= maxVl) {
-                verdict = "(VL)";
+                verdict = "(" + this.plugin.getMessages().get("verdict.vl") + ")";
             } else if (isVlPoint) {
-                verdict = "(ФЛАГ)";
+                verdict = "(" + this.plugin.getMessages().get("verdict.flag") + ")";
             } else {
-                verdict = "(ЛЕГИТ)";
+                verdict = "(" + this.plugin.getMessages().get("verdict.legit") + ")";
             }
 
             this.logger.info(String.format("[%s | %s | %.1f%% | VL: %d/%d]",
@@ -212,14 +276,13 @@ public class SessionManager {
 
             // Отправляем уведомление администраторам (право sinusac.alerts)
             if (shouldAlert || notifySender != null) {
-                String msg = this.pluginConfig.getNotifyMessage()
+                String msg = this.plugin.getMessages().get("notify.combat")
                         .replace("{player}", playerName)
                         .replace("{platform}", platform)
                         .replace("{verdict}", verdict)
                         .replace("{prob}", String.format("%.1f", percentage))
                         .replace("{vl}", String.valueOf(currentVl))
-                        .replace("{max_vl}", String.valueOf(maxVl))
-                        .replace("&", "\u00A7");
+                        .replace("{max_vl}", String.valueOf(maxVl));
 
                 this.plugin.getServer().getScheduler().runTask((Plugin) this.plugin, () -> {
                     if (this.plugin.isAlertsEnabled()) {
@@ -242,13 +305,6 @@ public class SessionManager {
                     session.setVl(0);
                 });
             }
-        };
-
-        if (this.pluginConfig.isAsync()) {
-            this.plugin.getServer().getScheduler().runTaskAsynchronously((Plugin) this.plugin, task);
-        } else {
-            task.run();
-        }
     }
 
     /** Выполняет punish-commands из конфига и шлёт notify_ban на сервер (Telegram). */
@@ -276,7 +332,7 @@ public class SessionManager {
         if (up == null) {
             this.logger.warning("[UPLOAD] Загрузчик не подключён — пропуск (" + playerName + ")");
             if (notifySender != null)
-                notifySender.sendMessage("Загрузка недоступна: модуль обучения не подключён.");
+                notifySender.sendMessage(this.plugin.getMessages().get("training.upload-unavailable"));
             return;
         }
         this.plugin.getServer().getScheduler().runTaskAsynchronously((Plugin) this.plugin, () -> {
@@ -285,8 +341,12 @@ public class SessionManager {
             this.logger.info(String.format("[UPLOAD] %s [%s] | %s | frames=%d | %s",
                     playerName, platform, label, frames.size(), success ? "OK" : "FAIL"));
             if (notifySender != null)
-                notifySender.sendMessage(String.format("Загружено %d фреймов для %s [%s] как %s: %s",
-                        frames.size(), playerName, platform, label, success ? "OK" : "FAIL"));
+                notifySender.sendMessage(this.plugin.getMessages().get("training.upload-result")
+                        .replace("{frames}", String.valueOf(frames.size()))
+                        .replace("{player}", playerName)
+                        .replace("{platform}", platform)
+                        .replace("{label}", label)
+                        .replace("{result}", success ? "OK" : "FAIL"));
         });
     }
 
@@ -296,27 +356,30 @@ public class SessionManager {
         int have = session.getFrameCount();
         int need = this.pluginConfig.getMinFrames();
         if (have < need) {
-            sender.sendMessage(String.format("Недостаточно фреймов: %d / %d для %s",
-                    have, need, player.getName()));
+            sender.sendMessage(this.plugin.getMessages().get("training.not-enough-frames")
+                    .replace("{have}", String.valueOf(have))
+                    .replace("{need}", String.valueOf(need))
+                    .replace("{player}", player.getName()));
             return;
         }
         String platform = getPlatform(player.getUniqueId());
-        sender.sendMessage("Анализирую " + player.getName() + " [" + platform + "]...");
-        analyzeSession(player.getName(), player.getUniqueId(), session.getFrames(), platform, sender);
+        sender.sendMessage(this.plugin.getMessages().get("training.analyzing")
+                .replace("{player}", player.getName())
+                .replace("{platform}", platform));
+        analyzeSession(player.getName(), player.getUniqueId(),
+                session.getFrames(), platform, sender, false);
     }
 
     /** [API для SinusOP] Выгрузка сессии как размеченного примера (train stop). */
     public void forceUpload(Player player, boolean isCheater, CommandSender sender) {
         PlayerSession session = getOrCreate(player);
         int have = session.getFrameCount();
-        int need = this.pluginConfig.getMinFrames();
-        if (have < need) {
-            sender.sendMessage(String.format("Недостаточно фреймов: %d / %d", have, need));
+        if (have == 0) {
+            sender.sendMessage(this.plugin.getMessages().get("training.no-new-frames"));
             return;
         }
         String platform = getPlatform(player.getUniqueId());
-        List<Frame> frames = session.getFrames();
-        session.clearFrames();
+        List<Frame> frames = session.drainFrames();
         uploadSession(player.getName(), frames, isCheater, platform, sender);
     }
 
@@ -327,10 +390,12 @@ public class SessionManager {
             if (session != null)
                 session.setMarkedAs(null);
             this.recordMode.remove(uuid);
+            this.recordedFrameCounts.remove(uuid);
         } else {
             if (session != null)
                 session.setMarkedAs(isCheater);
             this.recordMode.put(uuid, isCheater);
+            this.recordedFrameCounts.put(uuid, 0);
         }
     }
 
@@ -343,6 +408,8 @@ public class SessionManager {
 
     /** [API для SinusOP] Сколько фреймов накоплено (train list). */
     public int getFrameCount(UUID uuid) {
+        if (this.recordMode.containsKey(uuid))
+            return this.recordedFrameCounts.getOrDefault(uuid, 0);
         PlayerSession session = this.sessions.get(uuid);
         return (session != null) ? session.getFrameCount() : 0;
     }
@@ -353,8 +420,11 @@ public class SessionManager {
             this.tickTask.cancel();
         this.sessions.clear();
         this.recordMode.clear();
+        this.recordedFrameCounts.clear();
         this.platformCache.clear();
         this.suspicionHistory.clear();
+        this.combatInFlight.clear();
+        this.lastCombatRequestTick.clear();
     }
 
     public int getActiveCount() {

@@ -1,0 +1,75 @@
+# SinusAC default locale
+prefix: "&8[&bSinusAI&8] "
+
+no-permission: "{prefix}&cYou do not have permission to use this command."
+plugin-not-ready: "{prefix}&cThe plugin is not connected to the SinusAI server."
+players-only: "{prefix}&cThis command is available to players only."
+player-not-found: "{prefix}&cPlayer &e{player} &cwas not found."
+
+state:
+  enabled: "enabled"
+  disabled: "disabled"
+  online: "online"
+  unavailable: "unavailable"
+  unlimited: "unlimited"
+  days: "{days} days"
+
+verdict:
+  auto: "AUTO"
+  vl: "VL"
+  flag: "FLAG"
+  legit: "LEGIT"
+
+cmd:
+  help:
+    - "&8&m                    "
+    - " &bSinusAC &7— Help"
+    - "&8&m                    "
+    - " &7/sinusac status &8— API, license and checks status"
+    - " &7/sinusac alerts <on|off> &8— Toggle staff alerts"
+    - " &7/sinusac holo <on|off> &8— Toggle your holograms"
+    - " &7/sinusac check <player> &8— Force combat analysis"
+    - " &7/sinusac sessions &8— List active sessions"
+    - " &7/sinusac reload &8— Reload configuration and locale"
+    - "&8&m                    "
+  status:
+    api: "{prefix}&7API server: &f{url}"
+    server: "{prefix}&7Server ID: &f{id}"
+    sessions: "{prefix}&7Active sessions: &e{count}"
+    alerts: "{prefix}&7Alerts: &f{state}"
+    combat: "{prefix}&7Combat check: &f{state}"
+    fly: "{prefix}&7Fly check: &f{state}"
+    locale: "{prefix}&7Locale: &f{locale}"
+    api_check: "{prefix}&7SinusAI server: &f{status}"
+    license: "{prefix}&7License: {valid}{msg} &7(remaining: &a{days}&7)"
+  reload:
+    start: "{prefix}&7Reloading configuration..."
+    success: "{prefix}&aConfiguration and locale reloaded successfully."
+    fail: "{prefix}&cReload failed: &e{msg}"
+  check:
+    usage: "{prefix}&cUsage: &7/sinusac check <player>"
+    analyzing: "{prefix}&7Analyzing player &e{player}&7..."
+  holo:
+    usage: "{prefix}&7Your holograms are currently &f{state}&7. Usage: &7/sinusac holo <on|off>"
+    usage_err: "{prefix}&cUse &eon &cor &eoff&c."
+    "on": "{prefix}&aHolograms enabled &7(for you only)&a."
+    "off": "{prefix}&cHolograms disabled &7(for you only)&c."
+  alerts:
+    usage: "{prefix}&7Alerts are currently &f{state}&7. Usage: &7/sinusac alerts <on|off>"
+    usage_err: "{prefix}&cUse &eon &cor &eoff&c."
+    "on": "{prefix}&aAlerts enabled."
+    "off": "{prefix}&cAlerts disabled."
+  sessions:
+    count: "{prefix}&7Active sessions: &e{count}"
+
+notify:
+  combat: "&8[&bSinusAI&8] &f{player} &7— &f{verdict} &7— cheating probability: &c{prob}% &8(&b{vl}&7/&b{max_vl}&8)"
+  fly: "&8[&bSinusAI&8] &f{player} &7— &cFly detected &8(&bVL {vl} &7· &bMVL {mvl}&8)"
+
+training:
+  upload-unavailable: "{prefix}&cTraining upload is unavailable."
+  upload-result: "{prefix}&7Uploaded &e{frames} &7frames for &e{player} &8[{platform}] &7as &f{label}&7: {result}"
+  no-new-frames: "{prefix}&eAll complete batches were already uploaded; there are no new frames."
+  not-enough-frames: "{prefix}&cNot enough frames: &e{have}&7/&e{need} &7for {player}."
+  analyzing: "{prefix}&7Analyzing &e{player} &8[{platform}]&7..."
+
