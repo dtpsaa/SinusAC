@@ -23,9 +23,10 @@ import ru.dtpsaa.sinusac.model.FlySnapshot;
  */
 public class ApiClient {
 
-    private String baseUrl;
-    private String licenseKey;
-    private String serverId;
+    private volatile String baseUrl;
+    private volatile String licenseKey;
+    private volatile String serverId;
+    private volatile String publicIp;
 
     public static class LicenseResult {
         public final boolean valid;
@@ -132,7 +133,7 @@ public class ApiClient {
     }
 
     private final Gson gson = new Gson();
-    private HttpClient http;
+    private volatile HttpClient http;
     private volatile String sessionToken;
 
     public ApiClient(String baseUrl, String licenseKey) {
@@ -140,6 +141,7 @@ public class ApiClient {
         this.licenseKey = licenseKey;
         this.sessionToken = licenseKey;
         this.serverId = "unknown";
+        this.publicIp = "unknown";
         this.http = buildClient();
     }
 
@@ -153,9 +155,13 @@ public class ApiClient {
         this.licenseKey = config.getLicenseKey();
         this.sessionToken = this.licenseKey;
         this.http = buildClient();
-        String publicIp = resolvePublicIp();
-        this.serverId = (serverPort > 0 && !publicIp.equals("unknown"))
-                ? publicIp + ":" + serverPort : publicIp;
+        String resolvedIp = this.publicIp;
+        if (resolvedIp.equals("unknown")) {
+            resolvedIp = resolvePublicIp();
+            this.publicIp = resolvedIp;
+        }
+        this.serverId = (serverPort > 0 && !resolvedIp.equals("unknown"))
+                ? resolvedIp + ":" + serverPort : resolvedIp;
     }
 
     public String getBaseUrl() {

@@ -110,6 +110,8 @@ public class SessionManager {
 
     /** Вызывается MovementListener на каждое изменение yaw/pitch. */
     public void onPlayerMove(Player player, float yaw, float pitch) {
+        if (!this.plugin.isReady())
+            return;
         collectMovement(player, yaw, pitch);
     }
 
@@ -142,7 +144,7 @@ public class SessionManager {
 
     /** Вызывается CombatListener на удар по игроку. Запускает анализ последних 60 фреймов. */
     public void onPlayerAttack(Player attacker) {
-        if (!this.pluginConfig.isCheckEnabled("combat"))
+        if (!this.plugin.isReady() || !this.pluginConfig.isCheckEnabled("combat"))
             return;
         UUID uuid = attacker.getUniqueId();
         PlayerSession session = collectMovement(attacker,
@@ -196,12 +198,11 @@ public class SessionManager {
                                 boolean releaseCombatSlot) {
         this.apiClient.analyzeAsync(frames, "combat", platform, playerName)
                 .whenComplete((result, error) -> {
-                    try {
-                        handleAnalysis(playerName, uuid, frames, platform, notifySender, result);
-                    } finally {
-                        if (releaseCombatSlot)
-                            this.combatInFlight.remove(uuid);
-                    }
+                    if (releaseCombatSlot)
+                        this.combatInFlight.remove(uuid);
+                    if (error == null && result != null)
+                        this.plugin.runOnMainThread(() -> handleAnalysis(
+                                playerName, uuid, frames, platform, notifySender, result));
                 });
     }
 
@@ -236,9 +237,7 @@ public class SessionManager {
                 if (target != null) {
                     final List<Double> histSnap = new ArrayList<>(history);
                     final double avg = avgProb;
-                    this.plugin.getServer().getScheduler().runTask((Plugin) this.plugin, () ->
-                            this.plugin.getHoloManager().update(target, histSnap, avg)
-                    );
+                    this.plugin.getHoloManager().update(target, histSnap, avg);
                 }
             }
 
@@ -284,15 +283,13 @@ public class SessionManager {
                         .replace("{vl}", String.valueOf(currentVl))
                         .replace("{max_vl}", String.valueOf(maxVl));
 
-                this.plugin.getServer().getScheduler().runTask((Plugin) this.plugin, () -> {
-                    if (this.plugin.isAlertsEnabled()) {
-                        this.plugin.getServer().getOnlinePlayers().stream()
-                                .filter(p -> p.hasPermission("sinusac.alerts"))
-                                .forEach(p -> p.sendMessage(msg));
-                    }
-                    if (notifySender != null)
-                        notifySender.sendMessage(msg);
-                });
+                if (this.plugin.isAlertsEnabled()) {
+                    this.plugin.getServer().getOnlinePlayers().stream()
+                            .filter(p -> p.hasPermission("sinusac.alerts"))
+                            .forEach(p -> p.sendMessage(msg));
+                }
+                if (notifySender != null)
+                    notifySender.sendMessage(msg);
             }
 
             // Наказание: AUTO или VL достигнут
@@ -300,10 +297,8 @@ public class SessionManager {
                 String reason = isAutoFlag ? "AUTO" : "VL";
                 List<Frame> framesCopy = new ArrayList<>(frames);
                 String platformFinal = platform;
-                this.plugin.getServer().getScheduler().runTask((Plugin) this.plugin, () -> {
-                    executePunishment(playerName, reason, currentVl, framesCopy, platformFinal, probability);
-                    session.setVl(0);
-                });
+                executePunishment(playerName, reason, currentVl, framesCopy, platformFinal, probability);
+                session.setVl(0);
             }
     }
 

@@ -50,6 +50,7 @@ public final class FlyManager implements Listener {
     private BukkitTask tickTask;
     private PluginConfig config;
     private long lastErrorLog;
+    private volatile boolean stopping;
 
     public FlyManager(SinusAC plugin, ApiClient apiClient,
                       SessionManager sessions, PluginConfig config) {
@@ -72,6 +73,8 @@ public final class FlyManager implements Listener {
     }
 
     public void shutdown() {
+        this.stopping = true;
+        this.requestInFlight.set(false);
         if (this.tickTask != null)
             this.tickTask.cancel();
         this.buffers.clear();
@@ -80,7 +83,7 @@ public final class FlyManager implements Listener {
     }
 
     private void tick() {
-        if (!this.config.isCheckEnabled("fly"))
+        if (this.stopping || !this.plugin.isReady() || !this.config.isCheckEnabled("fly"))
             return;
 
         int batchSize = this.config.getFlyBatchSize();
@@ -167,8 +170,10 @@ public final class FlyManager implements Listener {
             return;
 
         this.apiClient.analyzeFlyBatchAsync(request).whenComplete((call, error) -> {
-            this.plugin.getServer().getScheduler().runTask((Plugin) this.plugin, () -> {
-                this.requestInFlight.set(false);
+            this.requestInFlight.set(false);
+            this.plugin.runOnMainThread(() -> {
+                if (this.stopping)
+                    return;
                 if (error != null || call == null || !call.success) {
                     logApiError(error != null ? error.getMessage()
                             : call == null ? "empty response" : call.error);

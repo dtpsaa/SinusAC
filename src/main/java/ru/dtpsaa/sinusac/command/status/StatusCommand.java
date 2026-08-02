@@ -49,11 +49,14 @@ public final class StatusCommand implements SubCommand {
         // Пинг и лицензия — сеть, асинхронно
         this.plugin.getServer().getScheduler().runTaskAsynchronously((Plugin) this.plugin, () -> {
             boolean alive = this.plugin.getApiClient().ping();
-            sender.sendMessage(this.plugin.getMessages().get("cmd.status.api_check")
-                    .replace("{status}", this.plugin.getMessages().get(
-                            alive ? "state.online" : "state.unavailable")));
-            if (alive) {
-                ApiClient.LicenseResult lic = this.plugin.getApiClient().validateLicense();
+            ApiClient.LicenseResult lic = alive
+                    ? this.plugin.getApiClient().validateLicense() : null;
+            this.plugin.runOnMainThread(() -> {
+                sender.sendMessage(this.plugin.getMessages().get("cmd.status.api_check")
+                        .replace("{status}", this.plugin.getMessages().get(
+                                alive ? "state.online" : "state.unavailable")));
+                if (lic == null)
+                    return;
                 String days = (lic.remainingDays == -1)
                         ? this.plugin.getMessages().get("state.unlimited")
                         : this.plugin.getMessages().get("state.days")
@@ -63,7 +66,7 @@ public final class StatusCommand implements SubCommand {
                         .replace("{valid}", validColor)
                         .replace("{msg}", lic.message)
                         .replace("{days}", days));
-            }
+            });
         });
     }
 

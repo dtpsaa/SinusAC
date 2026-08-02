@@ -1,0 +1,99 @@
+SinusAI Source-Available License 1.0
+
+Copyright (c) 2026 Individual Entrepreneur Alexander Igorevich Tsarev
+All rights reserved.
+
+This license applies to the SinusAC source code, binaries, documentation, and
+other files distributed with this repository (the "Software"). The SinusAI
+backend, machine-learning models, datasets, APIs, trademarks, websites, and
+customer dashboard are separate protected components and are not licensed
+under this document unless expressly stated otherwise.
+
+1. LIMITED GRANT
+
+Subject to this license, the right holder grants you a limited, revocable,
+non-exclusive, non-transferable right to:
+
+  a. view and download the source code for evaluation and security review;
+  b. compile and privately modify the Software for evaluation; and
+  c. run the Software on servers covered by an active SinusAI subscription and
+     valid activation key, within the term and server limits of the purchased
+     plan.
+
+No other rights are granted. Access to the source code does not make the
+Software open-source software.
+
+2. RESTRICTIONS
+
+You may not, without prior written permission from the right holder:
+
+  a. publish, redistribute, sublicense, sell, lease, rent, or otherwise provide
+     the Software or a modified version to any third party;
+  b. offer the Software, a modified version, or access to the SinusAI service as
+     your own product or managed service;
+  c. share, transfer, resell, or expose an activation key or account;
+  d. bypass, disable, alter, or interfere with activation, subscription terms,
+     server limits, telemetry required for operation, or other access controls;
+  e. use the Software or API to extract, reproduce, train against, probe, or
+     derive SinusAI models, datasets, detection logic, or private backend code;
+  f. remove or alter copyright, attribution, license, or proprietary notices;
+  g. use the Software to attack, overload, disrupt, or gain unauthorized access
+     to SinusAI infrastructure or any third-party system; or
+  h. use the Software in violation of applicable law.
+
+You may submit a modification to the official SinusAC repository as a pull
+request. Submission of a contribution does not grant you permission to publish
+or redistribute the Software elsewhere. By submitting a contribution, you
+grant the right holder a perpetual, worldwide, irrevocable, royalty-free right
+to use, modify, license, sublicense, and distribute that contribution as part
+of SinusAI products and services.
+
+3. SERVICE AND TELEMETRY
+
+The Software depends on the private SinusAI service. To provide anti-cheat
+analysis, licensing, security, and dashboard features, it may transmit
+technical data including a server identifier, Minecraft player name or UUID,
+platform, combat and movement features, check results, cheat probabilities,
+flags, and online counts. Service use is also subject to the terms and privacy
+notices published by SinusAI.
+
+The right holder may change, suspend, rate-limit, or discontinue API access, or
+revoke access associated with abuse, non-payment, an expired subscription, or
+a violation of this license.
+
+4. OWNERSHIP AND TRADEMARKS
+
+The Software is licensed, not sold. The right holder retains all title,
+copyright, and other intellectual-property rights in the Software and the
+SinusAI platform. This license does not grant permission to use the SinusAI or
+SinusAC names, logos, or other marks except to identify an unmodified,
+authorized installation of the Software.
+
+5. TERMINATION
+
+This license terminates automatically when the applicable subscription expires
+or when you breach any term of this license. On termination, you must stop using
+the Software and delete unauthorized copies. Provisions concerning ownership,
+restrictions, warranty, liability, and governing law survive termination.
+
+6. DISCLAIMER OF WARRANTY
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE AND SERVICE ARE PROVIDED
+"AS IS" AND "AS AVAILABLE", WITHOUT WARRANTIES OF ANY KIND. ANTI-CHEAT SCORES
+AND FLAGS ARE RECOMMENDATIONS AND ARE NOT CONCLUSIVE PROOF OF CHEATING. THE
+RIGHT HOLDER DOES NOT GUARANTEE UNINTERRUPTED OPERATION, PERFECT DETECTION, OR
+THE ABSENCE OF FALSE POSITIVES.
+
+7. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE RIGHT HOLDER WILL NOT BE LIABLE FOR
+INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, LOST DATA,
+LOST PROFITS, SERVER DOWNTIME, OR MODERATION DECISIONS. AGGREGATE LIABILITY FOR
+THE AFFECTED SERVICE PERIOD WILL NOT EXCEED THE AMOUNT PAID FOR THAT PERIOD,
+EXCEPT WHERE APPLICABLE LAW REQUIRES OTHERWISE.
+
+8. GOVERNING LAW
+
+This license is governed by the laws of the Russian Federation. Mandatory
+consumer and other statutory rights remain unaffected. Questions and requests
+for separate commercial permission may be sent to admin@castcube.pw.

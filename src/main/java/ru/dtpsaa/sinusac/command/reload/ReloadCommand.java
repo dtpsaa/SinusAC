@@ -31,22 +31,26 @@ public final class ReloadCommand implements SubCommand {
         this.plugin.reloadConfig();
         this.plugin.getPluginConfig().reload(this.plugin.getConfig());
         this.plugin.getMessages().load();
-        this.plugin.getApiClient().updateConfig(
-                this.plugin.getPluginConfig(), this.plugin.getServer().getPort());
         sender.sendMessage(this.plugin.getMessages().get("cmd.reload.start"));
 
-        // Проверка лицензии — сетевой вызов, поэтому асинхронно
+        // Обновление API (включая возможное определение IP) и проверка
+        // лицензии являются сетевыми операциями, поэтому всё выполняется async.
         this.plugin.getServer().getScheduler().runTaskAsynchronously((Plugin) this.plugin, () -> {
+            this.plugin.getApiClient().updateConfig(
+                    this.plugin.getPluginConfig(), this.plugin.getServer().getPort());
             ApiClient.LicenseResult lic = this.plugin.getApiClient().validateLicense();
-            if (lic.valid) {
-                if (this.plugin.getSessionManager() != null)
-                    this.plugin.getSessionManager().updateConfig(this.plugin.getPluginConfig());
-                if (this.plugin.getFlyManager() != null)
-                    this.plugin.getFlyManager().updateConfig(this.plugin.getPluginConfig());
-                sender.sendMessage(this.plugin.getMessages().get("cmd.reload.success"));
-            } else {
-                sender.sendMessage(this.plugin.getMessages().get("cmd.reload.fail").replace("{msg}", lic.message));
-            }
+            this.plugin.runOnMainThread(() -> {
+                if (lic.valid) {
+                    if (this.plugin.getSessionManager() != null)
+                        this.plugin.getSessionManager().updateConfig(this.plugin.getPluginConfig());
+                    if (this.plugin.getFlyManager() != null)
+                        this.plugin.getFlyManager().updateConfig(this.plugin.getPluginConfig());
+                    sender.sendMessage(this.plugin.getMessages().get("cmd.reload.success"));
+                } else {
+                    sender.sendMessage(this.plugin.getMessages().get("cmd.reload.fail")
+                            .replace("{msg}", lic.message));
+                }
+            });
         });
     }
 }

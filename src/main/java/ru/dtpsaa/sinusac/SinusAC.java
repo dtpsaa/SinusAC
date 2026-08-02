@@ -35,6 +35,8 @@ public class SinusAC extends JavaPlugin {
     private FlyManager flyManager;
     private Messages msgs;
     private HologramManager holoManager;
+    private volatile boolean stopping;
+    private volatile boolean ready;
 
     /** Глобальный тумблер алертов (рассылка всем с правом sinusac.alerts). */
     private volatile boolean alertsEnabled = true;
@@ -42,6 +44,8 @@ public class SinusAC extends JavaPlugin {
     @Override
     public void onEnable() {
         instance = this;
+        this.stopping = false;
+        this.ready = false;
         saveDefaultConfig();
         // Merge newly introduced options into existing installations without
         // overwriting the license key or server-specific values.
@@ -59,7 +63,6 @@ public class SinusAC extends JavaPlugin {
         // ---------- API-клиент ----------
         try {
             this.apiClient = new ApiClient(this.pluginConfig.getServerUrl(), this.pluginConfig.getLicenseKey());
-            this.apiClient.updateConfig(this.pluginConfig, getServer().getPort());
         } catch (Exception e) {
             getLogger().severe("Ошибка инициализации API: " + e.getMessage());
             getServer().getPluginManager().disablePlugin(this);
@@ -77,20 +80,40 @@ public class SinusAC extends JavaPlugin {
         }
 
         getLogger().info("Проверка лицензии...");
-        try {
-            ApiClient.LicenseResult lic = this.apiClient.validateLicense();
-            if (!lic.valid) {
-                getLogger().severe("Лицензия недействительна: " + lic.message);
-                getServer().getPluginManager().disablePlugin(this);
-                return;
+        // Create the public API immediately so dependent plugins can attach to
+        // SinusAC, but keep all checks idle until the async license check passes.
+        if (!initializeManagers())
+            return;
+
+        // Public IP discovery and license validation are network operations.
+        // Never run them on the Minecraft tick thread.
+        getServer().getScheduler().runTaskAsynchronously(this, () -> {
+            ApiClient.LicenseResult result;
+            try {
+                this.apiClient.updateConfig(this.pluginConfig, getServer().getPort());
+                result = this.apiClient.validateLicense();
+            } catch (Exception e) {
+                result = ApiClient.LicenseResult.fail("Ошибка проверки лицензии: " + e.getMessage());
             }
-            getLogger().info("Лицензия принята: " + lic.message);
-        } catch (Exception e) {
-            getLogger().severe("Ошибка проверки лицензии: " + e.getMessage());
+            ApiClient.LicenseResult completed = result;
+            runOnMainThread(() -> finishEnable(completed));
+        });
+    }
+
+    private void finishEnable(ApiClient.LicenseResult lic) {
+        if (this.stopping || !isEnabled())
+            return;
+        if (!lic.valid) {
+            getLogger().severe("Лицензия недействительна: " + lic.message);
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
+        getLogger().info("Лицензия принята: " + lic.message);
+        this.ready = true;
+        getLogger().info("SinusAC успешно запущен.");
+    }
 
+    private boolean initializeManagers() {
         // ---------- Менеджеры, листенеры, команды ----------
         try {
             this.sessionManager = new SessionManager(this, this.apiClient, this.pluginConfig);
@@ -103,24 +126,43 @@ public class SinusAC extends JavaPlugin {
 
             // Регистрация всех подкоманд /sinusac — см. command/CommandRegistry
             new CommandRegistry(this).register("sinusac");
-
-            getLogger().info("SinusAC успешно запущен.");
+            return true;
         } catch (Exception e) {
             getLogger().severe("Ошибка запуска: " + e.getMessage());
             e.printStackTrace();
             getServer().getPluginManager().disablePlugin(this);
+            return false;
         }
     }
 
     @Override
     public void onDisable() {
+        this.stopping = true;
+        this.ready = false;
         if (this.flyManager != null)
             this.flyManager.shutdown();
         if (this.sessionManager != null)
             this.sessionManager.flushAll();
         if (this.holoManager != null)
             this.holoManager.removeAll();
+        if (instance == this)
+            instance = null;
         getLogger().info("SinusAC отключён.");
+    }
+
+    /** Safely hands an async result back to Bukkit, ignoring late callbacks after disable/reload. */
+    public boolean runOnMainThread(Runnable action) {
+        if (this.stopping || !isEnabled())
+            return false;
+        try {
+            getServer().getScheduler().runTask(this, () -> {
+                if (!this.stopping && isEnabled())
+                    action.run();
+            });
+            return true;
+        } catch (IllegalStateException ignored) {
+            return false;
+        }
     }
 
     private void printBanner() {
@@ -141,6 +183,7 @@ public class SinusAC extends JavaPlugin {
     public SessionManager getSessionManager()    { return this.sessionManager; }
     public FlyManager getFlyManager()            { return this.flyManager; }
     public HologramManager getHoloManager()      { return this.holoManager; }
+    public boolean isReady()                     { return this.ready; }
 
     public boolean isAlertsEnabled()             { return this.alertsEnabled; }
     public void setAlertsEnabled(boolean v)      { this.alertsEnabled = v; }
