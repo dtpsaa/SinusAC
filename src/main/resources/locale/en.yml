@@ -38,6 +38,7 @@ cmd:
     alerts: "{prefix}&7Alerts: &f{state}"
     combat: "{prefix}&7Combat check: &f{state}"
     fly: "{prefix}&7Fly check: &f{state}"
+    bedrock-aim: "{prefix}&7Bedrock Aim check: &f{state}"
     locale: "{prefix}&7Locale: &f{locale}"
     api_check: "{prefix}&7SinusAI server: &f{status}"
     license: "{prefix}&7License: {valid}{msg} &7(remaining: &a{days}&7)"
@@ -64,6 +65,7 @@ cmd:
 notify:
   combat: "&8[&bSinusAI&8] &f{player} &7— &f{verdict} &7— cheating probability: &c{prob}% &8(&b{vl}&7/&b{max_vl}&8)"
   fly: "&8[&bSinusAI&8] &f{player} &7— &cFly detected &8(&bVL {vl} &7· &bMVL {mvl}&8)"
+  bedrock-aim: "&8[&bSinusAI&8] &f{player} &7— &cBedrock Aim detected &8(&brisk {risk}% &7· &bVL {vl} &7· &bMVL {mvl}&8)"
 
 training:
   upload-unavailable: "{prefix}&cTraining upload is unavailable."

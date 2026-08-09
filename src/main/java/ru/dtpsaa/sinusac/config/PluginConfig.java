@@ -56,6 +56,14 @@ public class PluginConfig {
         return this.cfg.getBoolean("checks." + resolve(checkType) + ".enabled", true);
     }
 
+    public boolean isFlyCheckEnabled() {
+        return this.cfg.getBoolean("fly-check", false);
+    }
+
+    public boolean isBedrockAimEnabled() {
+        return this.cfg.getBoolean("bedrock-aim", false);
+    }
+
     public int getCombatRequestIntervalTicks() {
         return Math.max(5, Math.min(100,
                 this.cfg.getInt("checks.combat.request-interval-ticks", 20)));

@@ -3,6 +3,7 @@ package ru.dtpsaa.sinusac;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import ru.dtpsaa.sinusac.collector.BedrockAimManager;
 import ru.dtpsaa.sinusac.collector.CombatListener;
 import ru.dtpsaa.sinusac.collector.FlyManager;
 import ru.dtpsaa.sinusac.collector.MovementListener;
@@ -21,6 +22,7 @@ public class SinusAC extends JavaPlugin {
     private ApiClient apiClient;
     private SessionManager sessionManager;
     private FlyManager flyManager;
+    private BedrockAimManager bedrockAimManager;
     private Messages msgs;
     private HologramManager holoManager;
     private volatile boolean stopping;
@@ -89,6 +91,7 @@ public class SinusAC extends JavaPlugin {
             return;
         }
         getLogger().info("Лицензия принята: " + lic.message);
+        applySubscriptionFeatures(lic);
         this.ready = true;
         getLogger().info("SinusAC успешно запущен.");
     }
@@ -99,10 +102,13 @@ public class SinusAC extends JavaPlugin {
             this.sessionManager = new SessionManager(this, this.apiClient, this.pluginConfig);
             this.holoManager = new HologramManager(this);
             this.flyManager = new FlyManager(this, this.apiClient, this.sessionManager, this.pluginConfig);
+            this.bedrockAimManager = new BedrockAimManager(
+                    this, this.apiClient, this.sessionManager, this.pluginConfig);
 
             getServer().getPluginManager().registerEvents((Listener) new MovementListener(this.sessionManager), (Plugin) this);
             getServer().getPluginManager().registerEvents((Listener) new CombatListener(this.sessionManager), (Plugin) this);
             getServer().getPluginManager().registerEvents((Listener) this.flyManager, (Plugin) this);
+            getServer().getPluginManager().registerEvents((Listener) this.bedrockAimManager, (Plugin) this);
 
             new CommandRegistry(this).register("sinusac");
             return true;
@@ -120,6 +126,8 @@ public class SinusAC extends JavaPlugin {
         this.ready = false;
         if (this.flyManager != null)
             this.flyManager.shutdown();
+        if (this.bedrockAimManager != null)
+            this.bedrockAimManager.shutdown();
         if (this.sessionManager != null)
             this.sessionManager.flushAll();
         if (this.holoManager != null)
@@ -143,6 +151,24 @@ public class SinusAC extends JavaPlugin {
         }
     }
 
+    public void applySubscriptionFeatures(ApiClient.LicenseResult license) {
+        boolean changed = false;
+        if (this.pluginConfig.isFlyCheckEnabled() && !license.flyCheckAllowed) {
+            getConfig().set("fly-check", false);
+            getLogger().warning("fly-check недоступен для тарифа " + license.plan + "; оставлен false.");
+            changed = true;
+        }
+        if (this.pluginConfig.isBedrockAimEnabled() && !license.bedrockAimAllowed) {
+            getConfig().set("bedrock-aim", false);
+            getLogger().warning("bedrock-aim недоступен для тарифа " + license.plan + "; оставлен false.");
+            changed = true;
+        }
+        if (changed) {
+            saveConfig();
+            this.pluginConfig.reload(getConfig());
+        }
+    }
+
     private void printBanner() {
         getLogger().info("  ____  _                       _    ____ ");
         getLogger().info(" / ___|(_)_ __  _   _ ___      / \\  / ___|");
@@ -158,6 +184,7 @@ public class SinusAC extends JavaPlugin {
     public ApiClient getApiClient()              { return this.apiClient; }
     public SessionManager getSessionManager()    { return this.sessionManager; }
     public FlyManager getFlyManager()            { return this.flyManager; }
+    public BedrockAimManager getBedrockAimManager() { return this.bedrockAimManager; }
     public HologramManager getHoloManager()      { return this.holoManager; }
     public boolean isReady()                     { return this.ready; }
 

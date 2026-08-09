@@ -100,7 +100,9 @@ public final class CommandRegistry implements CommandExecutor, TabCompleter {
         sender.sendMessage(this.plugin.getMessages().get("cmd.status.combat")
                 .replace("{state}", state(this.plugin.getPluginConfig().isCheckEnabled("combat"))));
         sender.sendMessage(this.plugin.getMessages().get("cmd.status.fly")
-                .replace("{state}", state(this.plugin.getPluginConfig().isCheckEnabled("fly"))));
+                .replace("{state}", state(this.plugin.getPluginConfig().isFlyCheckEnabled())));
+        sender.sendMessage(this.plugin.getMessages().get("cmd.status.bedrock-aim")
+                .replace("{state}", state(this.plugin.getPluginConfig().isBedrockAimEnabled())));
         sender.sendMessage(this.plugin.getMessages().get("cmd.status.locale")
                 .replace("{locale}", this.plugin.getMessages().getLocale()));
 
@@ -218,10 +220,13 @@ public final class CommandRegistry implements CommandExecutor, TabCompleter {
             ApiClient.LicenseResult license = this.plugin.getApiClient().validateLicense();
             this.plugin.runOnMainThread(() -> {
                 if (license.valid) {
+                    this.plugin.applySubscriptionFeatures(license);
                     if (this.plugin.getSessionManager() != null)
                         this.plugin.getSessionManager().updateConfig(this.plugin.getPluginConfig());
                     if (this.plugin.getFlyManager() != null)
                         this.plugin.getFlyManager().updateConfig(this.plugin.getPluginConfig());
+                    if (this.plugin.getBedrockAimManager() != null)
+                        this.plugin.getBedrockAimManager().updateConfig(this.plugin.getPluginConfig());
                     sender.sendMessage(this.plugin.getMessages().get("cmd.reload.success"));
                 } else {
                     sender.sendMessage(this.plugin.getMessages().get("cmd.reload.fail")

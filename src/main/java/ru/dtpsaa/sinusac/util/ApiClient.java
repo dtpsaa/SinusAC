@@ -10,9 +10,11 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import ru.dtpsaa.sinusac.config.PluginConfig;
+import ru.dtpsaa.sinusac.model.BedrockCombatSnapshot;
 import ru.dtpsaa.sinusac.model.Frame;
 import ru.dtpsaa.sinusac.model.FlySnapshot;
 
@@ -27,15 +29,22 @@ public class ApiClient {
         public final boolean valid;
         public final String message;
         public final int remainingDays;
+        public final String plan;
+        public final boolean flyCheckAllowed;
+        public final boolean bedrockAimAllowed;
 
-        public LicenseResult(boolean valid, String message, int remainingDays) {
+        public LicenseResult(boolean valid, String message, int remainingDays,
+                             String plan, boolean flyCheckAllowed, boolean bedrockAimAllowed) {
             this.valid = valid;
             this.message = message;
             this.remainingDays = remainingDays;
+            this.plan = plan;
+            this.flyCheckAllowed = flyCheckAllowed;
+            this.bedrockAimAllowed = bedrockAimAllowed;
         }
 
         public static LicenseResult fail(String r) {
-            return new LicenseResult(false, r, 0);
+            return new LicenseResult(false, r, 0, "unknown", false, false);
         }
     }
 
@@ -127,6 +136,64 @@ public class ApiClient {
         }
     }
 
+    public static final class BedrockCombatInput {
+        public final String player_id;
+        public final String uuid;
+        public final String session_id;
+        public final List<BedrockCombatSnapshot> snapshots;
+
+        public BedrockCombatInput(String playerName, String uuid, String sessionId,
+                                  List<BedrockCombatSnapshot> snapshots) {
+            this.player_id = playerName;
+            this.uuid = uuid;
+            this.session_id = sessionId;
+            this.snapshots = snapshots;
+        }
+    }
+
+    public static final class BedrockCombatResult {
+        public final double riskScore;
+        public final double evidenceStrength;
+        public final boolean flagged;
+        public final int vl;
+        public final int mvl;
+        public final boolean buffering;
+        public final List<String> reasons;
+
+        public BedrockCombatResult(double riskScore, double evidenceStrength,
+                                   boolean flagged, int vl, int mvl,
+                                   boolean buffering, List<String> reasons) {
+            this.riskScore = riskScore;
+            this.evidenceStrength = evidenceStrength;
+            this.flagged = flagged;
+            this.vl = vl;
+            this.mvl = mvl;
+            this.buffering = buffering;
+            this.reasons = reasons == null ? List.of() : reasons;
+        }
+    }
+
+    public static final class BedrockCombatCallResult {
+        public final boolean success;
+        public final String error;
+        public final Map<String, BedrockCombatResult> results;
+
+        private BedrockCombatCallResult(boolean success, String error,
+                                        Map<String, BedrockCombatResult> results) {
+            this.success = success;
+            this.error = error;
+            this.results = results;
+        }
+
+        public static BedrockCombatCallResult ok(Map<String, BedrockCombatResult> results) {
+            return new BedrockCombatCallResult(true, "", results);
+        }
+
+        public static BedrockCombatCallResult fail(String error) {
+            return new BedrockCombatCallResult(false, error, new HashMap<>());
+        }
+    }
+
     private final Gson gson = new Gson();
     private volatile HttpClient http;
     private volatile String sessionToken;
@@ -206,7 +273,15 @@ public class ApiClient {
                 int rem = (obj.has("remaining_days") && !obj.get("remaining_days").isJsonNull())
                         ? obj.get("remaining_days").getAsInt() : -1;
                 String plan = obj.has("plan") ? obj.get("plan").getAsString() : "unknown";
-                return new LicenseResult(true, plan, rem);
+                String normalizedPlan = plan.toLowerCase(Locale.ROOT);
+                boolean flyAllowed = obj.has("fly_check")
+                        ? obj.get("fly_check").getAsBoolean()
+                        : normalizedPlan.equals("pro") || normalizedPlan.equals("ultra")
+                                || normalizedPlan.equals("enterprise");
+                boolean aimAllowed = obj.has("bedrock_aim")
+                        ? obj.get("bedrock_aim").getAsBoolean()
+                        : normalizedPlan.equals("ultra") || normalizedPlan.equals("enterprise");
+                return new LicenseResult(true, plan, rem, plan, flyAllowed, aimAllowed);
             }
             return LicenseResult.fail("HTTP " + resp.statusCode() + " " + reason(resp.body()));
         } catch (Exception e) {
@@ -341,6 +416,54 @@ public class ApiClient {
         }
     }
 
+    public CompletableFuture<BedrockCombatCallResult> analyzeBedrockCombatBatchAsync(
+            List<BedrockCombatInput> players) {
+        if (players == null || players.isEmpty())
+            return CompletableFuture.completedFuture(BedrockCombatCallResult.ok(new HashMap<>()));
+        Map<String, Object> body = new HashMap<>();
+        body.put("server_id", this.serverId);
+        body.put("players", players);
+        try {
+            HttpRequest request = authReq(this.baseUrl + "/bedrock/combat/analyze-batch")
+                    .POST(HttpRequest.BodyPublishers.ofString(this.gson.toJson(body))).build();
+            return this.http.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .handle((response, error) -> error == null
+                            ? parseBedrockCombatBatch(response)
+                            : BedrockCombatCallResult.fail(error.getClass().getSimpleName()
+                                    + ": " + error.getMessage()));
+        } catch (Exception e) {
+            return CompletableFuture.completedFuture(BedrockCombatCallResult.fail(
+                    e.getClass().getSimpleName() + ": " + e.getMessage()));
+        }
+    }
+
+    private BedrockCombatCallResult parseBedrockCombatBatch(HttpResponse<String> response) {
+        if (response == null || response.statusCode() != 200)
+            return BedrockCombatCallResult.fail(response == null ? "empty response"
+                    : "HTTP " + response.statusCode() + " " + reason(response.body()));
+        try {
+            JsonObject root = this.gson.fromJson(response.body(), JsonObject.class);
+            Map<String, BedrockCombatResult> results = new HashMap<>();
+            if (root.has("results") && root.get("results").isJsonArray()) {
+                for (JsonElement item : root.getAsJsonArray("results")) {
+                    JsonObject obj = item.getAsJsonObject();
+                    List<String> reasons = new java.util.ArrayList<>();
+                    if (obj.has("reasons") && obj.get("reasons").isJsonArray())
+                        obj.getAsJsonArray("reasons").forEach(value -> reasons.add(value.getAsString()));
+                    results.put(obj.get("uuid").getAsString(), new BedrockCombatResult(
+                            obj.get("risk_score").getAsDouble(),
+                            obj.get("evidence_strength").getAsDouble(),
+                            obj.get("flagged").getAsBoolean(),
+                            obj.get("vl").getAsInt(), obj.get("mvl").getAsInt(),
+                            obj.get("buffering").getAsBoolean(), reasons));
+                }
+            }
+            return BedrockCombatCallResult.ok(results);
+        } catch (Exception e) {
+            return BedrockCombatCallResult.fail("invalid response: " + e.getMessage());
+        }
+    }
+
     public void resetFly(String uuid) {
         postFlyLifecycle("/fly/reset", uuid);
     }
@@ -349,7 +472,19 @@ public class ApiClient {
         postFlyLifecycle("/fly/quit", uuid);
     }
 
+    public void resetBedrockCombat(String uuid) {
+        postLifecycle("/bedrock/combat/reset", uuid);
+    }
+
+    public void quitBedrockCombat(String uuid) {
+        postLifecycle("/bedrock/combat/quit", uuid);
+    }
+
     private void postFlyLifecycle(String path, String uuid) {
+        postLifecycle(path, uuid);
+    }
+
+    private void postLifecycle(String path, String uuid) {
         Map<String, Object> body = new HashMap<>();
         body.put("server_id", this.serverId);
         body.put("uuid", uuid);

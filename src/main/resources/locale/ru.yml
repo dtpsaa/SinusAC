@@ -38,6 +38,7 @@ cmd:
     alerts: "{prefix}&7Уведомления: &f{state}"
     combat: "{prefix}&7Combat-проверка: &f{state}"
     fly: "{prefix}&7Fly-проверка: &f{state}"
+    bedrock-aim: "{prefix}&7Bedrock Aim-проверка: &f{state}"
     locale: "{prefix}&7Локаль: &f{locale}"
     api_check: "{prefix}&7Сервер SinusAI: &f{status}"
     license: "{prefix}&7Лицензия: {valid}{msg} &7(осталось: &a{days}&7)"
@@ -64,6 +65,7 @@ cmd:
 notify:
   combat: "&8[&bSinusAI&8] &f{player} &7— &f{verdict} &7— шанс читерства: &c{prob}% &8(&b{vl}&7/&b{max_vl}&8)"
   fly: "&8[&bSinusAI&8] &f{player} &7— &cобнаружен Fly &8(&bVL {vl} &7· &bMVL {mvl}&8)"
+  bedrock-aim: "&8[&bSinusAI&8] &f{player} &7— &cобнаружен Bedrock Aim &8(&bриск {risk}% &7· &bVL {vl} &7· &bMVL {mvl}&8)"
 
 training:
   upload-unavailable: "{prefix}&cМодуль загрузки обучения не подключён."

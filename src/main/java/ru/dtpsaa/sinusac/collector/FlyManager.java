@@ -59,9 +59,9 @@ public final class FlyManager implements Listener {
     }
 
     public void updateConfig(PluginConfig config) {
-        boolean wasEnabled = this.config.isCheckEnabled("fly");
+        boolean wasEnabled = this.config.isFlyCheckEnabled();
         this.config = config;
-        if (wasEnabled && !config.isCheckEnabled("fly")) {
+        if (wasEnabled && !config.isFlyCheckEnabled()) {
             this.buffers.clear();
             this.lastSafe.clear();
             this.grace.clear();
@@ -79,7 +79,7 @@ public final class FlyManager implements Listener {
     }
 
     private void tick() {
-        if (this.stopping || !this.plugin.isReady() || !this.config.isCheckEnabled("fly"))
+        if (this.stopping || !this.plugin.isReady() || !this.config.isFlyCheckEnabled())
             return;
 
         int batchSize = this.config.getFlyBatchSize();

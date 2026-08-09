@@ -3,6 +3,9 @@ locale: "en"
 
 license-key: ""
 
+fly-check: false
+bedrock-aim: false
+
 server:
   url: "https://sinusai.tech"
 
@@ -24,7 +27,6 @@ checks:
     auto-flag-threshold: 0.99
 
   fly:
-    enabled: true
     bedrock-only: true
     batch-size: 20
     min-vl: 3

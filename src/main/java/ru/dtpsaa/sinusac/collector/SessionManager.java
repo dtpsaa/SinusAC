@@ -96,7 +96,7 @@ public class SessionManager {
     }
 
     public void onPlayerMove(Player player, float yaw, float pitch) {
-        if (!this.plugin.isReady())
+        if (!this.plugin.isReady() || getPlatform(player.getUniqueId()).equals("bedrock"))
             return;
         collectMovement(player, yaw, pitch);
     }
@@ -127,6 +127,8 @@ public class SessionManager {
         if (!this.plugin.isReady() || !this.pluginConfig.isCheckEnabled("combat"))
             return;
         UUID uuid = attacker.getUniqueId();
+        if (getPlatform(uuid).equals("bedrock"))
+            return;
         PlayerSession session = collectMovement(attacker,
                 attacker.getLocation().getYaw(), attacker.getLocation().getPitch());
 
