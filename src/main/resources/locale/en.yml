@@ -65,7 +65,7 @@ cmd:
 notify:
   combat: "&8[&bSinusAI&8] &f{player} &7— &f{verdict} &7— cheating probability: &c{prob}% &8(&b{vl}&7/&b{max_vl}&8)"
   fly: "&8[&bSinusAI&8] &f{player} &7— &cFly detected &8(&bVL {vl} &7· &bMVL {mvl}&8)"
-  bedrock-aim: "&8[&bSinusAI&8] &f{player} &7— &fBedrock Aim check &8(&brisk {risk}% &7· &bVL {vl} &7· &bMVL {mvl} &7· &bhits {attacks}&8)"
+  bedrock-aim: "&8[&bSinusAI&8] &f{player} &7— &bBEDROCK &7— cheating probability: &c{prob}% &8(&b{vl}&7/&b{max_vl}&8)"
 
 training:
   upload-unavailable: "{prefix}&cTraining upload is unavailable."

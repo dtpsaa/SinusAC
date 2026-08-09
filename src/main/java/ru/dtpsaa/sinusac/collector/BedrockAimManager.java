@@ -194,24 +194,24 @@ public final class BedrockAimManager implements Listener {
         if (result.newAttacks <= 0)
             return;
         int accumulated = this.pendingAlertAttacks.merge(uuid, result.newAttacks, Integer::sum);
-        if (accumulated < ALERT_ATTACKS)
+        int maxVl = this.config.getMaxVl();
+        boolean punish = result.vl >= maxVl;
+        if (accumulated < ALERT_ATTACKS && !punish)
             return;
         this.pendingAlertAttacks.put(uuid, accumulated % ALERT_ATTACKS);
         Player player = this.plugin.getServer().getPlayer(uuid);
         if (player == null || !player.isOnline())
             return;
-        String reasons = result.reasons.isEmpty() ? "behavior" : String.join(",", result.reasons);
         String message = this.plugin.getMessages().get("notify.bedrock-aim")
                 .replace("{player}", player.getName())
-                .replace("{risk}", String.format("%.1f", result.riskScore * 100.0D))
+                .replace("{prob}", String.format("%.1f", result.riskScore * 100.0D))
                 .replace("{vl}", String.valueOf(result.vl))
-                .replace("{mvl}", String.valueOf(result.mvl))
-                .replace("{attacks}", String.valueOf(ALERT_ATTACKS));
+                .replace("{max_vl}", String.valueOf(maxVl));
         String logMessage = "[BEDROCK-AIM] " + player.getName()
-                + " | risk=" + String.format("%.1f%%", result.riskScore * 100.0D)
-                + " | VL=" + result.vl + " | MVL=" + result.mvl
-                + " | attacks=" + ALERT_ATTACKS + " | " + reasons;
-        if (result.flagged)
+                + " | BEDROCK | cheating probability="
+                + String.format("%.1f%%", result.riskScore * 100.0D)
+                + " | VL=" + result.vl + "/" + maxVl;
+        if (punish || result.flagged)
             this.plugin.getLogger().warning(logMessage);
         else
             this.plugin.getLogger().info(logMessage);
@@ -219,6 +219,17 @@ public final class BedrockAimManager implements Listener {
             this.plugin.getServer().getOnlinePlayers().stream()
                     .filter(viewer -> viewer.hasPermission("sinusac.alerts"))
                     .forEach(viewer -> viewer.sendMessage(message));
+        }
+        if (punish) {
+            for (String command : this.config.getPunishCommands()) {
+                this.plugin.getServer().dispatchCommand(
+                        this.plugin.getServer().getConsoleSender(),
+                        command.replace("{player}", player.getName())
+                                .replace("{reason}", "BEDROCK_AIM")
+                                .replace("{vl}", String.valueOf(result.vl)));
+            }
+            this.apiClient.resetBedrockCombat(uuid.toString());
+            this.pendingAlertAttacks.remove(uuid);
         }
     }
 

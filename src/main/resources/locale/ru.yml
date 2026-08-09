@@ -65,7 +65,7 @@ cmd:
 notify:
   combat: "&8[&bSinusAI&8] &f{player} &7— &f{verdict} &7— шанс читерства: &c{prob}% &8(&b{vl}&7/&b{max_vl}&8)"
   fly: "&8[&bSinusAI&8] &f{player} &7— &cобнаружен Fly &8(&bVL {vl} &7· &bMVL {mvl}&8)"
-  bedrock-aim: "&8[&bSinusAI&8] &f{player} &7— &fпроверка Bedrock Aim &8(&bриск {risk}% &7· &bVL {vl} &7· &bMVL {mvl} &7· &bударов {attacks}&8)"
+  bedrock-aim: "&8[&bSinusAI&8] &f{player} &7— &bBEDROCK &7— шанс читерства: &c{prob}% &8(&b{vl}&7/&b{max_vl}&8)"
 
 training:
   upload-unavailable: "{prefix}&cМодуль загрузки обучения не подключён."
