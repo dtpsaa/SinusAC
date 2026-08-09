@@ -105,13 +105,16 @@ public class ApiClient {
         public final int vl;
         public final int mvl;
         public final boolean hover;
+        public final boolean speed;
         public final Double teleportY;
 
-        public FlyResult(boolean flagged, int vl, int mvl, boolean hover, Double teleportY) {
+        public FlyResult(boolean flagged, int vl, int mvl, boolean hover,
+                         boolean speed, Double teleportY) {
             this.flagged = flagged;
             this.vl = vl;
             this.mvl = mvl;
             this.hover = hover;
+            this.speed = speed;
             this.teleportY = teleportY;
         }
     }
@@ -405,11 +408,12 @@ public class ApiClient {
                     String uuid = obj.get("uuid").getAsString();
                     Double teleportY = (obj.has("teleport_y") && !obj.get("teleport_y").isJsonNull())
                             ? obj.get("teleport_y").getAsDouble() : null;
+                    boolean speed = obj.has("speed") && obj.get("speed").getAsBoolean();
                     results.put(uuid, new FlyResult(
                             obj.get("flagged").getAsBoolean(),
                             obj.get("vl").getAsInt(),
                             obj.get("mvl").getAsInt(),
-                            obj.get("hover").getAsBoolean(), teleportY));
+                            obj.get("hover").getAsBoolean(), speed, teleportY));
                 }
             }
             return FlyCallResult.ok(results);

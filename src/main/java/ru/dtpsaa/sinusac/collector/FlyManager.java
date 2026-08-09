@@ -41,6 +41,7 @@ public final class FlyManager implements Listener {
     private final SessionManager sessions;
     private final Map<UUID, List<FlySnapshot>> buffers = new HashMap<>();
     private final Map<UUID, Location> lastSafe = new HashMap<>();
+    private final Map<UUID, Location> batchStartSafe = new HashMap<>();
     private final Set<UUID> grace = new HashSet<>();
     private final AtomicBoolean requestInFlight = new AtomicBoolean(false);
     private BukkitTask tickTask;
@@ -64,6 +65,7 @@ public final class FlyManager implements Listener {
         if (wasEnabled && !config.isFlyCheckEnabled()) {
             this.buffers.clear();
             this.lastSafe.clear();
+            this.batchStartSafe.clear();
             this.grace.clear();
         }
     }
@@ -75,6 +77,7 @@ public final class FlyManager implements Listener {
             this.tickTask.cancel();
         this.buffers.clear();
         this.lastSafe.clear();
+        this.batchStartSafe.clear();
         this.grace.clear();
     }
 
@@ -86,12 +89,17 @@ public final class FlyManager implements Listener {
         for (Player player : this.plugin.getServer().getOnlinePlayers()) {
             if (!shouldCheck(player)) {
                 this.buffers.remove(player.getUniqueId());
+                this.batchStartSafe.remove(player.getUniqueId());
                 continue;
             }
 
             FlySnapshot snapshot = snapshot(player);
-            this.buffers.computeIfAbsent(player.getUniqueId(), ignored -> new ArrayList<>(batchSize))
-                    .add(snapshot);
+            UUID uuid = player.getUniqueId();
+            List<FlySnapshot> buffer = this.buffers.computeIfAbsent(
+                    uuid, ignored -> new ArrayList<>(batchSize));
+            if (buffer.isEmpty())
+                this.batchStartSafe.put(uuid, player.getLocation().clone());
+            buffer.add(snapshot);
 
             if (snapshot.onGround || snapshot.inWater || snapshot.inLava || snapshot.climbing)
                 this.lastSafe.put(player.getUniqueId(), player.getLocation().clone());
@@ -144,6 +152,7 @@ public final class FlyManager implements Listener {
     private void dispatchReady(int batchSize) {
         List<ApiClient.FlyBatchInput> request = new ArrayList<>();
         Map<String, UUID> requestedPlayers = new HashMap<>();
+        Map<String, Location> rollbackLocations = new HashMap<>();
 
         for (Player player : this.plugin.getServer().getOnlinePlayers()) {
             if (request.size() >= MAX_PLAYERS_PER_REQUEST)
@@ -157,6 +166,11 @@ public final class FlyManager implements Listener {
             List<FlySnapshot> snapshots = new ArrayList<>(buffer.subList(0, count));
             buffer.subList(0, count).clear();
             String uuidText = uuid.toString();
+            Location rollback = this.batchStartSafe.remove(uuid);
+            if (rollback != null)
+                rollbackLocations.put(uuidText, rollback);
+            if (!buffer.isEmpty())
+                this.batchStartSafe.put(uuid, player.getLocation().clone());
             request.add(new ApiClient.FlyBatchInput(
                     player.getName(), uuidText, this.config.getFlyMinVl(), snapshots));
             requestedPlayers.put(uuidText, uuid);
@@ -178,13 +192,13 @@ public final class FlyManager implements Listener {
                 for (Map.Entry<String, ApiClient.FlyResult> entry : call.results.entrySet()) {
                     UUID uuid = requestedPlayers.get(entry.getKey());
                     if (uuid != null)
-                        handleResult(uuid, entry.getValue());
+                        handleResult(uuid, entry.getValue(), rollbackLocations.get(entry.getKey()));
                 }
             });
         });
     }
 
-    private void handleResult(UUID uuid, ApiClient.FlyResult result) {
+    private void handleResult(UUID uuid, ApiClient.FlyResult result, Location speedRollback) {
         if (!result.flagged)
             return;
         Player player = this.plugin.getServer().getPlayer(uuid);
@@ -207,7 +221,8 @@ public final class FlyManager implements Listener {
         }
 
         if (this.config.isFlySetback()) {
-            Location safe = this.lastSafe.get(uuid);
+            Location safe = result.speed && speedRollback != null
+                    ? speedRollback : this.lastSafe.get(uuid);
             if (safe != null && safe.getWorld() == player.getWorld()) {
                 this.grace.add(uuid);
                 player.teleport(safe, PlayerTeleportEvent.TeleportCause.PLUGIN);
@@ -239,6 +254,7 @@ public final class FlyManager implements Listener {
     private void resetLocal(UUID uuid, boolean notifyServer) {
         this.buffers.remove(uuid);
         this.lastSafe.remove(uuid);
+        this.batchStartSafe.remove(uuid);
         this.grace.add(uuid);
         if (notifyServer)
             this.apiClient.quitFly(uuid.toString());
