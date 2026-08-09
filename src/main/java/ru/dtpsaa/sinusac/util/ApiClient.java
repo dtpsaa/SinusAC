@@ -158,17 +158,19 @@ public class ApiClient {
         public final int vl;
         public final int mvl;
         public final boolean buffering;
+        public final int newAttacks;
         public final List<String> reasons;
 
         public BedrockCombatResult(double riskScore, double evidenceStrength,
                                    boolean flagged, int vl, int mvl,
-                                   boolean buffering, List<String> reasons) {
+                                   boolean buffering, int newAttacks, List<String> reasons) {
             this.riskScore = riskScore;
             this.evidenceStrength = evidenceStrength;
             this.flagged = flagged;
             this.vl = vl;
             this.mvl = mvl;
             this.buffering = buffering;
+            this.newAttacks = newAttacks;
             this.reasons = reasons == null ? List.of() : reasons;
         }
     }
@@ -455,7 +457,9 @@ public class ApiClient {
                             obj.get("evidence_strength").getAsDouble(),
                             obj.get("flagged").getAsBoolean(),
                             obj.get("vl").getAsInt(), obj.get("mvl").getAsInt(),
-                            obj.get("buffering").getAsBoolean(), reasons));
+                            obj.get("buffering").getAsBoolean(),
+                            obj.has("new_attacks") ? obj.get("new_attacks").getAsInt() : 0,
+                            reasons));
                 }
             }
             return BedrockCombatCallResult.ok(results);

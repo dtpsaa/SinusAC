@@ -29,6 +29,7 @@ import ru.dtpsaa.sinusac.util.ApiClient;
 public final class BedrockAimManager implements Listener {
 
     private static final int BATCH_SIZE = 20;
+    private static final int ALERT_ATTACKS = 3;
     private static final int MAX_PLAYERS_PER_REQUEST = 50;
     private static final double TARGET_RANGE_SQUARED = 64.0D;
 
@@ -40,6 +41,7 @@ public final class BedrockAimManager implements Listener {
     private final Map<UUID, Long> sequences = new HashMap<>();
     private final Map<UUID, Long> teleportGraceUntil = new HashMap<>();
     private final Map<UUID, Long> velocityGraceUntil = new HashMap<>();
+    private final Map<UUID, Integer> pendingAlertAttacks = new HashMap<>();
     private final AtomicBoolean requestInFlight = new AtomicBoolean(false);
     private PluginConfig config;
     private BukkitTask tickTask;
@@ -189,8 +191,12 @@ public final class BedrockAimManager implements Listener {
     }
 
     private void handleResult(UUID uuid, ApiClient.BedrockCombatResult result) {
-        if (!result.flagged)
+        if (result.newAttacks <= 0)
             return;
+        int accumulated = this.pendingAlertAttacks.merge(uuid, result.newAttacks, Integer::sum);
+        if (accumulated < ALERT_ATTACKS)
+            return;
+        this.pendingAlertAttacks.put(uuid, accumulated % ALERT_ATTACKS);
         Player player = this.plugin.getServer().getPlayer(uuid);
         if (player == null || !player.isOnline())
             return;
@@ -199,10 +205,16 @@ public final class BedrockAimManager implements Listener {
                 .replace("{player}", player.getName())
                 .replace("{risk}", String.format("%.1f", result.riskScore * 100.0D))
                 .replace("{vl}", String.valueOf(result.vl))
-                .replace("{mvl}", String.valueOf(result.mvl));
-        this.plugin.getLogger().warning("[BEDROCK-AIM] " + player.getName()
+                .replace("{mvl}", String.valueOf(result.mvl))
+                .replace("{attacks}", String.valueOf(ALERT_ATTACKS));
+        String logMessage = "[BEDROCK-AIM] " + player.getName()
                 + " | risk=" + String.format("%.1f%%", result.riskScore * 100.0D)
-                + " | VL=" + result.vl + " | MVL=" + result.mvl + " | " + reasons);
+                + " | VL=" + result.vl + " | MVL=" + result.mvl
+                + " | attacks=" + ALERT_ATTACKS + " | " + reasons;
+        if (result.flagged)
+            this.plugin.getLogger().warning(logMessage);
+        else
+            this.plugin.getLogger().info(logMessage);
         if (this.plugin.isAlertsEnabled()) {
             this.plugin.getServer().getOnlinePlayers().stream()
                     .filter(viewer -> viewer.hasPermission("sinusac.alerts"))
@@ -224,6 +236,7 @@ public final class BedrockAimManager implements Listener {
         this.sequences.remove(uuid);
         this.teleportGraceUntil.remove(uuid);
         this.velocityGraceUntil.remove(uuid);
+        this.pendingAlertAttacks.remove(uuid);
         if (notifyServer) {
             if (quit)
                 this.apiClient.quitBedrockCombat(uuid.toString());
@@ -238,6 +251,7 @@ public final class BedrockAimManager implements Listener {
         this.sequences.clear();
         this.teleportGraceUntil.clear();
         this.velocityGraceUntil.clear();
+        this.pendingAlertAttacks.clear();
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
