@@ -19,6 +19,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
@@ -35,6 +36,8 @@ import ru.dtpsaa.sinusac.util.ApiClient;
 public final class FlyManager implements Listener {
 
     private static final int MAX_PLAYERS_PER_REQUEST = 50;
+    private static final long SPEED_LOCK_MILLIS = 3_000L;
+    private static final long SPEED_ANCHOR_MILLIS = 10_000L;
 
     private final SinusAC plugin;
     private final ApiClient apiClient;
@@ -42,6 +45,9 @@ public final class FlyManager implements Listener {
     private final Map<UUID, List<FlySnapshot>> buffers = new HashMap<>();
     private final Map<UUID, Location> lastSafe = new HashMap<>();
     private final Map<UUID, Location> batchStartSafe = new HashMap<>();
+    private final Map<UUID, Location> speedAnchors = new HashMap<>();
+    private final Map<UUID, Long> speedAnchorExpires = new HashMap<>();
+    private final Map<UUID, Long> speedLockUntil = new HashMap<>();
     private final Set<UUID> grace = new HashSet<>();
     private final AtomicBoolean requestInFlight = new AtomicBoolean(false);
     private BukkitTask tickTask;
@@ -66,6 +72,9 @@ public final class FlyManager implements Listener {
             this.buffers.clear();
             this.lastSafe.clear();
             this.batchStartSafe.clear();
+            this.speedAnchors.clear();
+            this.speedAnchorExpires.clear();
+            this.speedLockUntil.clear();
             this.grace.clear();
         }
     }
@@ -78,6 +87,9 @@ public final class FlyManager implements Listener {
         this.buffers.clear();
         this.lastSafe.clear();
         this.batchStartSafe.clear();
+        this.speedAnchors.clear();
+        this.speedAnchorExpires.clear();
+        this.speedLockUntil.clear();
         this.grace.clear();
     }
 
@@ -169,8 +181,14 @@ public final class FlyManager implements Listener {
             Location rollback = this.batchStartSafe.remove(uuid);
             if (rollback != null)
                 rollbackLocations.put(uuidText, rollback);
-            if (!buffer.isEmpty())
-                this.batchStartSafe.put(uuid, player.getLocation().clone());
+            if (!buffer.isEmpty()) {
+                FlySnapshot firstQueued = buffer.get(0);
+                Location queuedStart = player.getLocation().clone();
+                queuedStart.setX(firstQueued.x);
+                queuedStart.setY(firstQueued.y);
+                queuedStart.setZ(firstQueued.z);
+                this.batchStartSafe.put(uuid, queuedStart);
+            }
             request.add(new ApiClient.FlyBatchInput(
                     player.getName(), uuidText, this.config.getFlyMinVl(), snapshots));
             requestedPlayers.put(uuidText, uuid);
@@ -212,7 +230,8 @@ public final class FlyManager implements Listener {
                 .replace("{mvl}", String.valueOf(result.mvl));
         this.plugin.getLogger().warning("[FLY] " + player.getName()
                 + " | VL=" + displayVl + " | MVL=" + result.mvl
-                + (result.hover ? " | HOVER" : ""));
+                + (result.hover ? " | HOVER" : "")
+                + (result.speed ? " | SPEED" : ""));
 
         if (this.plugin.isAlertsEnabled()) {
             this.plugin.getServer().getOnlinePlayers().stream()
@@ -221,11 +240,26 @@ public final class FlyManager implements Listener {
         }
 
         if (this.config.isFlySetback()) {
-            Location safe = result.speed && speedRollback != null
-                    ? speedRollback : this.lastSafe.get(uuid);
+            long now = System.currentTimeMillis();
+            Location safe = this.lastSafe.get(uuid);
+            if (result.speed) {
+                Location anchor = this.speedAnchors.get(uuid);
+                long anchorExpires = this.speedAnchorExpires.getOrDefault(uuid, 0L);
+                if (anchor == null || anchorExpires < now || anchor.getWorld() != player.getWorld())
+                    anchor = speedRollback;
+                safe = anchor;
+            }
             if (safe != null && safe.getWorld() == player.getWorld()) {
                 this.grace.add(uuid);
                 player.teleport(safe, PlayerTeleportEvent.TeleportCause.PLUGIN);
+                if (result.speed) {
+                    this.speedAnchors.put(uuid, safe.clone());
+                    this.speedAnchorExpires.put(uuid, now + SPEED_ANCHOR_MILLIS);
+                    this.speedLockUntil.put(uuid, now + SPEED_LOCK_MILLIS);
+                    this.buffers.remove(uuid);
+                    this.batchStartSafe.remove(uuid);
+                    this.lastSafe.put(uuid, safe.clone());
+                }
             }
         }
 
@@ -255,6 +289,9 @@ public final class FlyManager implements Listener {
         this.buffers.remove(uuid);
         this.lastSafe.remove(uuid);
         this.batchStartSafe.remove(uuid);
+        this.speedAnchors.remove(uuid);
+        this.speedAnchorExpires.remove(uuid);
+        this.speedLockUntil.remove(uuid);
         this.grace.add(uuid);
         if (notifyServer)
             this.apiClient.quitFly(uuid.toString());
@@ -263,6 +300,34 @@ public final class FlyManager implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent event) {
         this.grace.add(event.getPlayer().getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onMove(PlayerMoveEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        long now = System.currentTimeMillis();
+        if (this.speedLockUntil.getOrDefault(uuid, 0L) < now) {
+            this.speedLockUntil.remove(uuid);
+            if (this.speedAnchorExpires.getOrDefault(uuid, 0L) < now) {
+                this.speedAnchors.remove(uuid);
+                this.speedAnchorExpires.remove(uuid);
+            }
+            return;
+        }
+
+        Location anchor = this.speedAnchors.get(uuid);
+        Location to = event.getTo();
+        if (anchor == null || to == null || anchor.getWorld() != to.getWorld())
+            return;
+        if (Math.abs(to.getX() - anchor.getX()) < 0.001D
+                && Math.abs(to.getY() - anchor.getY()) < 0.001D
+                && Math.abs(to.getZ() - anchor.getZ()) < 0.001D)
+            return;
+
+        Location locked = anchor.clone();
+        locked.setYaw(to.getYaw());
+        locked.setPitch(to.getPitch());
+        event.setTo(locked);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

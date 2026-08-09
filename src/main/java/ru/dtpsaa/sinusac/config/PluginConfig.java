@@ -86,7 +86,7 @@ public class PluginConfig {
     }
 
     public int getFlyBatchSize() {
-        return Math.max(5, Math.min(60, this.cfg.getInt("checks.fly.batch-size", 20)));
+        return Math.max(5, Math.min(60, this.cfg.getInt("checks.fly.batch-size", 5)));
     }
 
     public int getFlyMinVl() {

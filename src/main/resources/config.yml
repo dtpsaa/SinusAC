@@ -28,7 +28,8 @@ checks:
 
   fly:
     bedrock-only: true
-    batch-size: 20
+    # Five snapshots keep speed setbacks close to the original position.
+    batch-size: 5
     min-vl: 3
     max-mvl: 12
     setback: true
