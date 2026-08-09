@@ -10,15 +10,6 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.ItemStack;
 
-/**
- * Слушатель PvP-ударов. Фильтрует шум и передаёт валидные атаки
- * в SessionManager#onPlayerAttack. Логика 1-в-1 из SinusAI:
- *  - учитываются только удары игрока по игроку;
- *  - право anticheat.bypass освобождает от проверки;
- *  - THORNS (шипы) — не удар, игнорируем;
- *  - булава (MACE) даёт легитные резкие развороты — пропускаем;
- *  - пинг > 200 мс даёт грязные данные — пропускаем.
- */
 public class CombatListener implements Listener {
 
     private final SessionManager sessionManager;

@@ -3,11 +3,6 @@ package ru.dtpsaa.sinusac.config;
 import java.util.List;
 import org.bukkit.configuration.file.FileConfiguration;
 
-/**
- * Типизированная обёртка над config.yml.
- * Один экземпляр живёт весь аптайм плагина; при /sinusac reload
- * ему передаётся свежий FileConfiguration через reload().
- */
 public class PluginConfig {
 
     private FileConfiguration cfg;
@@ -19,8 +14,6 @@ public class PluginConfig {
     public void reload(FileConfiguration cfg) {
         this.cfg = cfg;
     }
-
-    // ---------- Лицензия и API ----------
 
     public String getLicenseKey() {
         return this.cfg.getString("license-key", "").trim();
@@ -34,8 +27,6 @@ public class PluginConfig {
         String locale = this.cfg.getString("locale", "en").trim().toLowerCase();
         return locale.equals("ru") ? "ru" : "en";
     }
-
-    // ---------- Сбор фреймов ----------
 
     public int getMinFrames() {
         return this.cfg.getInt("collection.min-frames", 30);
@@ -57,9 +48,6 @@ public class PluginConfig {
         return this.cfg.getInt("gcd.history-size", 40);
     }
 
-    // ---------- Пороги проверок ----------
-
-    /** killaura/aimassist схлопываются в общий combat-чек. */
     private String resolve(String checkType) {
         return (checkType.equals("killaura") || checkType.equals("aimassist")) ? "combat" : checkType;
     }
@@ -85,8 +73,6 @@ public class PluginConfig {
         return this.cfg.getDouble("checks." + resolve(checkType) + ".alert-threshold", 0.0D);
     }
 
-    // ---------- Fly ----------
-
     public boolean isFlyBedrockOnly() {
         return this.cfg.getBoolean("checks.fly.bedrock-only", true);
     }
@@ -110,8 +96,6 @@ public class PluginConfig {
     public List<String> getFlyPunishCommands() {
         return this.cfg.getStringList("checks.fly.punish-commands");
     }
-
-    // ---------- Наказания ----------
 
     public int getMaxVl() {
         return this.cfg.getInt("collection.max-vl", 6);

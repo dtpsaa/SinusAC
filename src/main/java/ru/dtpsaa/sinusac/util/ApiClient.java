@@ -16,11 +16,6 @@ import ru.dtpsaa.sinusac.config.PluginConfig;
 import ru.dtpsaa.sinusac.model.Frame;
 import ru.dtpsaa.sinusac.model.FlySnapshot;
 
-/**
- * HTTP-клиент к ML-серверу SinusAI.
- * <p>
- * SinusAC использует: validateLicense, analyze, notifyBan, heartbeat, ping.
- */
 public class ApiClient {
 
     private volatile String baseUrl;
@@ -49,9 +44,9 @@ public class ApiClient {
         public final double confidence;
         public final boolean flagged;
         public final String checkType;
-        /** Модель ещё не обучена/не загружена на сервере. */
+
         public final boolean noModel;
-        /** Сервер копит буфер фреймов — вердикта пока нет. */
+
         public final boolean buffering;
 
         public AnalysisResult(double probability, double confidence, boolean flagged,
@@ -145,7 +140,6 @@ public class ApiClient {
         this.http = buildClient();
     }
 
-    /** Перечитывает url/ключ и автоматически формирует public-ip:bukkit-port. */
     public void updateConfig(PluginConfig config) {
         updateConfig(config, -1);
     }
@@ -220,7 +214,6 @@ public class ApiClient {
         }
     }
 
-    /** Non-blocking combat analysis; no Bukkit scheduler thread waits for HTTP. */
     public CompletableFuture<AnalysisResult> analyzeAsync(
             List<Frame> frames, String checkType, String platform, String playerName) {
         Map<String, Object> body = analysisBody(frames, checkType, platform, playerName);
@@ -263,7 +256,6 @@ public class ApiClient {
         }
     }
 
-    /** Загружает размеченные фреймы в обучающий датасет. Используется только SinusOP. */
     public boolean upload(List<Frame> frames, boolean isCheater, String checkType, String platform) {
         Map<String, Object> body = new HashMap<>();
         body.put("platform", platform);
@@ -282,7 +274,6 @@ public class ApiClient {
         }
     }
 
-    /** Запускает обучение моделей на ML-сервере. Используется только SinusOP. */
     public LearnResult learn() {
         try {
             HttpResponse<String> resp = this.http.send(
@@ -304,7 +295,6 @@ public class ApiClient {
         }
     }
 
-    /** Sends up to 50 players in one non-blocking HTTP request. */
     public CompletableFuture<FlyCallResult> analyzeFlyBatchAsync(List<FlyBatchInput> players) {
         if (players == null || players.isEmpty())
             return CompletableFuture.completedFuture(FlyCallResult.ok(new HashMap<>()));
@@ -371,7 +361,6 @@ public class ApiClient {
         } catch (Exception ignored) {}
     }
 
-    /** Уведомление о наказании (Telegram на стороне сервера). Ошибки глотаются. */
     public void notifyBan(String playerName, String platform, String reason, int vl, double probability, List<Frame> frames) {
         Map<String, Object> body = new HashMap<>();
         body.put("player_id", playerName);

@@ -7,13 +7,6 @@ import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.YamlConfiguration;
 import ru.dtpsaa.sinusac.SinusAC;
 
-/**
- * Обёртка над locale/en.yml и locale/ru.yml: подстановка {prefix} и цветов.
- * <p>
- * get(path)     — одиночная строка;
- * getList(path) — список строк (help и любые многострочные сообщения
- *                 оформляются списками, как ты просил).
- */
 public class Messages {
 
     private final SinusAC plugin;
@@ -26,7 +19,6 @@ public class Messages {
         load();
     }
 
-    /** Перечитывает выбранную локаль (вызывается из /sinusac reload). */
     public void load() {
         this.plugin.saveResource("locale/en.yml", false);
         this.plugin.saveResource("locale/ru.yml", false);

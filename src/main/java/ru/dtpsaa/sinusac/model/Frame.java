@@ -1,9 +1,5 @@
 package ru.dtpsaa.sinusac.model;
 
-/**
- * Один кадр движения камеры игрока: абсолютные yaw/pitch.
- * Иммутабельный DTO, сериализуется Gson-ом как есть при отправке на ML-сервер.
- */
 public class Frame {
 
     public final float yaw;

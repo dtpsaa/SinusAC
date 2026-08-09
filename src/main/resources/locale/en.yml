@@ -1,4 +1,3 @@
-# SinusAC default locale
 prefix: "&8[&bSinusAI&8] "
 
 no-permission: "{prefix}&cYou do not have permission to use this command."
@@ -72,4 +71,3 @@ training:
   no-new-frames: "{prefix}&eAll complete batches were already uploaded; there are no new frames."
   not-enough-frames: "{prefix}&cNot enough frames: &e{have}&7/&e{need} &7for {player}."
   analyzing: "{prefix}&7Analyzing &e{player} &8[{platform}]&7..."
-

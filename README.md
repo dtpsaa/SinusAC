@@ -9,6 +9,12 @@ AI-powered anti-cheat for Minecraft Java and Bedrock servers. Combat and Fly tel
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.21%2B-62b47a)](https://papermc.io/)
 [![License](https://img.shields.io/badge/license-source--available-22d3c5)](LICENSE)
 
+## Version 1.1.1
+
+- All `/sinusac` subcommands now use one command implementation instead of separate packages and classes.
+- Late Combat responses can no longer trigger alerts, VL, holograms or punishment after a player enters training mode.
+- Source and configuration comments were removed for a cleaner project structure.
+
 ## What SinusAC is
 
 SinusAC is the server plugin for the SinusAI anti-cheat platform. It collects compact combat and movement features and sends them to the SinusAI API for analysis. Detection logic and ML models remain on the private backend and are not included in this repository.

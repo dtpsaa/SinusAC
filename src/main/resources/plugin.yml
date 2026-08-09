@@ -1,5 +1,5 @@
 name: SinusAC
-version: '1.1.0'
+version: '1.1.1'
 main: ru.dtpsaa.sinusac.SinusAC
 api-version: '1.16'
 softdepend: [floodgate]

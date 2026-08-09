@@ -1,4 +1,3 @@
-# Русская локаль SinusAC
 prefix: "&8[&bSinusAI&8] "
 
 no-permission: "{prefix}&cУ вас недостаточно прав для этой команды."
@@ -72,4 +71,3 @@ training:
   no-new-frames: "{prefix}&eВсе полные пачки уже отправлены; новых кадров нет."
   not-enough-frames: "{prefix}&cНедостаточно фреймов: &e{have}&7/&e{need} &7для {player}."
   analyzing: "{prefix}&7Анализирую &e{player} &8[{platform}]&7..."
-

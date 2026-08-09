@@ -32,10 +32,6 @@ import ru.dtpsaa.sinusac.config.PluginConfig;
 import ru.dtpsaa.sinusac.model.FlySnapshot;
 import ru.dtpsaa.sinusac.util.ApiClient;
 
-/**
- * Collects one movement snapshot per tick and sends compact multi-player batches
- * to the private Fly engine. All Bukkit reads and actions stay on the main thread.
- */
 public final class FlyManager implements Listener {
 
     private static final int MAX_PLAYERS_PER_REQUEST = 50;

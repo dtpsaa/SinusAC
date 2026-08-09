@@ -2,7 +2,6 @@ package ru.dtpsaa.sinusac.model;
 
 import com.google.gson.annotations.SerializedName;
 
-/** One server-tick movement snapshot for the server-side Fly rule engine. */
 public final class FlySnapshot {
 
     public final double x;
@@ -46,4 +45,3 @@ public final class FlySnapshot {
         this.grace = grace;
     }
 }
-

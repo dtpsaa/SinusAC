@@ -7,14 +7,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Сессия одного игрока: скользящее окно фреймов (yaw/pitch),
- * GCD-статистика по дельтам поворота, счётчик VL и метка обучения.
- * <p>
- * Поле markedAs — часть тренировочного API: сами команды train/learn
- * живут в SinusOP, но данные сессии хранятся здесь, в движке.
- * Логика перенесена из SinusAI 1-в-1, изменён только пакет.
- */
 public class PlayerSession {
 
     public final UUID uuid;
@@ -36,7 +28,6 @@ public class PlayerSession {
     private int vl = 0;
     private int combatTicks = 0;
 
-    /** null — обычный мониторинг; true/false — игрок записывается как CHEATER/LEGIT (управляется из SinusOP). */
     private Boolean markedAs = null;
 
     public PlayerSession(UUID uuid, String name, int maxFrames, int gcdHistorySize) {
@@ -48,16 +39,10 @@ public class PlayerSession {
         this.gcdPitchHistory = new ArrayDeque<>(gcdHistorySize);
     }
 
-    /** Добавляет кадр движения. Первый вызов только инициализирует prev-значения. */
     public void addMovement(float yaw, float pitch) {
         addMovement(yaw, pitch, true);
     }
 
-    /**
-     * Добавляет кадр движения. Во время обычного мониторинга сохраняется
-     * скользящее окно maxFrames; во время записи датасета лимит отключается,
-     * потому что SessionManager сам выгружает данные пакетами.
-     */
     public boolean addMovement(float yaw, float pitch, boolean enforceLimit) {
         if (Float.isNaN(this.prevYaw)) {
             this.prevYaw = yaw;
@@ -111,21 +96,15 @@ public class PlayerSession {
     public void resetCombatTicks()  { this.combatTicks = 0; }
     public int getCombatTicks()     { return this.combatTicks; }
 
-    /** Возвращает КОПИЮ списка фреймов — безопасно для асинхронной обработки. */
     public List<Frame> getFrames()  { return new ArrayList<>(this.frames); }
     public int getFrameCount()      { return this.frames.size(); }
 
-    /**
-     * Забирает накопленную пачку, сохраняя prevYaw и GCD-историю между
-     * пакетами датасета.
-     */
     public List<Frame> drainFrames() {
         List<Frame> result = new ArrayList<>(this.frames);
         this.frames.clear();
         return result;
     }
 
-    /** Полный сброс сессии (используется при начале записи в SinusOP). */
     public void clearFrames() {
         this.frames.clear();
         this.prevYaw = Float.NaN;
