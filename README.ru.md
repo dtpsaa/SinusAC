@@ -9,7 +9,7 @@
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.21%2B-62b47a)](https://papermc.io/)
 [![License](https://img.shields.io/badge/license-source--available-22d3c5)](LICENSE)
 
-## Версия 1.1.1
+## Версия 1.2.0
 
 - Все подкоманды `/sinusac` теперь собраны в одной реализации без отдельных пакетов и классов.
 - Поздний ответ Combat больше не вызывает алерт, VL, голограмму или наказание, если игрок уже переведён в режим обучения.

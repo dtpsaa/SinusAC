@@ -9,7 +9,7 @@ AI-powered anti-cheat for Minecraft Java and Bedrock servers. Combat and Fly tel
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.21%2B-62b47a)](https://papermc.io/)
 [![License](https://img.shields.io/badge/license-source--available-22d3c5)](LICENSE)
 
-## Version 1.1.1
+## Version 1.2.0
 
 - All `/sinusac` subcommands now use one command implementation instead of separate packages and classes.
 - Late Combat responses can no longer trigger alerts, VL, holograms or punishment after a player enters training mode.
